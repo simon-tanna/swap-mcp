@@ -497,9 +497,9 @@
         "T18",
         "T25"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "922efba4eb8acb99519e2e2abee85d1330047bb3",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
