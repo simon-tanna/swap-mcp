@@ -1,3 +1,0 @@
-test	pnpm run test
-lint	pnpm run lint
-typecheck	pnpm run typecheck

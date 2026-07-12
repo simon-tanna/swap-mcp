@@ -96,7 +96,7 @@ HTTP status.
 | `GET /api/transactions/:id` | `swap:read`  | `get_transaction`   |
 
 `POST /api/quote` and `POST /api/swap` take the same JSON body as their tool
-inputs. `POST /api/swap` never accepts `userId` — identity comes from the token.
+inputs. `POST /api/swap` never accepts `userId`: identity comes from the token.
 `GET /api/transactions` reads `limit`, `cursor`, and `status` as query
 parameters.
 
@@ -131,11 +131,11 @@ One row per swap attempt (`src/db/schema.ts`).
 The `status` column holds exactly one of four values, constrained by a table
 check:
 
-- `pending` — inserted, not yet broadcast. No `txHash`.
-- `submitted` — broadcast; `txHash` recorded. Terminal only after
+- `pending`: inserted, not yet broadcast. No `txHash`.
+- `submitted`: broadcast; `txHash` recorded. Terminal only after
   reconciliation if the receipt never settled.
-- `confirmed` — receipt succeeded; `actualAmountOut`, `gasUsed`, `settledAt` set.
-- `failed` — aborted or reverted; `errorCode`, `settledAt` set. Pre-submit
+- `confirmed`: receipt succeeded; `actualAmountOut`, `gasUsed`, `settledAt` set.
+- `failed`: aborted or reverted; `errorCode`, `settledAt` set. Pre-submit
   aborts leave `txHash` null; post-submit reverts keep it.
 
 `timed_out` is **not** a status. It is a `result` field on the tool/endpoint
@@ -146,7 +146,7 @@ response indicating the receipt wait did not settle; the row remains
 
 The `list` cursor is an opaque base64url token wrapping `{ createdAt, id }`
 (`src/repository/cursor.ts`). It is strictly validated on decode; any tampering
-throws `invalid_input`. Treat it as opaque — do not construct or parse it.
+throws `invalid_input`. Treat it as opaque: do not construct or parse it.
 
 ## Error codes
 

@@ -8,7 +8,7 @@ and the custodial stance. It is background reading, not a task list.
 
 The Worker's entry point is a Cloudflare `OAuthProvider` that owns discovery,
 token issuance, and open Dynamic Client Registration, and guards two protected
-surfaces — `/mcp` and `/api/*` — behind a bearer token
+surfaces (`/mcp` and `/api/*`) behind a bearer token
 (`src/index.ts`). `/mcp` is served by an `McpAgent`, which the Agents SDK
 resolves to a Durable Object by binding name.
 
@@ -38,7 +38,7 @@ all operators out; that tradeoff is covered in the deploy how-to.
 
 Execution funnels through a single-user `SwapCoordinator` Durable Object
 (`src/coordinator/SwapCoordinator.ts`). Because one custodial wallet signs every
-swap, two swaps must never build and broadcast concurrently — overlapping
+swap, two swaps must never build and broadcast concurrently: overlapping
 submissions would race on the wallet nonce. The coordinator serializes calls by
 chaining each `executeSwap` onto the previous call's settlement through an
 in-memory promise tail (`#tail`), so call N+1 begins its engine work only after
@@ -48,7 +48,7 @@ call N settles.
 
 The `#tail` mutex is an in-memory, per-live-instance primitive. It serializes
 only within one running Durable Object instance and **does not survive DO
-eviction or hibernation** — a re-instantiated object starts with a fresh,
+eviction or hibernation**: a re-instantiated object starts with a fresh,
 resolved tail. Do not overstate its guarantee: cross-eviction safety does **not**
 rest on this mutex. It rests on the single-in-flight-swap invariant (one wallet,
 one swap at a time) plus D1 reconciliation of any row stranded in `submitted`.
@@ -79,7 +79,7 @@ action, documented in the one-time approval how-to.
 ## Custodial trade-offs
 
 The server holds one private key and swaps on behalf of a single user. This is
-simple and fast — no per-user key management, no external signing round-trips —
+simple and fast (no per-user key management, no external signing round-trips)
 but concentrates risk: the key is a single point of compromise, and the single
 wallet is why swaps must serialize. The design leans into this rather than
 hiding it: secrets are exposed only through lazy accessor closures, never stored

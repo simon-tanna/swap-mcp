@@ -6,7 +6,7 @@ mocked Trading API. You finish with a running server, a working token, and a
 quote in hand.
 
 You need Node 20+, [pnpm](https://pnpm.io) (pinned in `package.json`), and a
-terminal. You do not need a funded wallet or a real Uniswap key — this tutorial
+terminal. You do not need a funded wallet or a real Uniswap key: this tutorial
 never submits a swap.
 
 ## 1. Install
@@ -36,8 +36,8 @@ ETH_RPC_URL=https://rpc.invalid
 choose one you will remember. The public key, RPC URL, and Uniswap key stay
 unused until you execute a real swap, which this tutorial does not.
 
-The non-secret vars — `CHAIN_ID`, `CANONICAL_MCP_URI`, `TRADING_API_BASE_URL`,
-and `ALLOWED_ORIGINS` — already carry working defaults in `wrangler.jsonc`.
+The non-secret vars (`CHAIN_ID`, `CANONICAL_MCP_URI`, `TRADING_API_BASE_URL`,
+and `ALLOWED_ORIGINS`) already carry working defaults in `wrangler.jsonc`.
 
 ## 3. Start the dev server
 
@@ -59,7 +59,7 @@ reads no bindings.
 ## 4. Mint a token through the consent flow
 
 The server is an OAuth 2.1 provider. One operator token authorizes both the
-`/mcp` and `/api/*` surfaces. Minting a token is a four-step dance — register a
+`/mcp` and `/api/*` surfaces. Minting a token is a four-step dance: register a
 client, request authorization, approve on the consent screen, then exchange the
 code. The integration helper `test/helpers/mintToken.ts` performs exactly these
 steps in code; the walkthrough below mirrors it with `curl`.
@@ -85,7 +85,7 @@ example `https://claude.ai`); the consent flow rejects a request from any origin
 outside `ALLOWED_ORIGINS`.
 
 `GET /authorize` returns an HTML consent page. Confirm the client name and
-redirect URL match what you expect — this is your out-of-band phishing check —
+redirect URL match what you expect (this is your out-of-band phishing check),
 then read the hidden `csrf_token` field. `POST` back to the same `/authorize`
 URL with the `csrf_token` and your `AUTH_PASSPHRASE`, again with the allowed
 `Origin`. On success the server responds `302` with the authorization `code` on

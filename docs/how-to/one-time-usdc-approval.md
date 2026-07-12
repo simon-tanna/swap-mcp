@@ -23,13 +23,13 @@ is your out-of-band action.
 
 ## Send the approval
 
-From the swap wallet — the account behind `SWAP_PRIVATE_KEY` — send one
+From the swap wallet (the account behind `SWAP_PRIVATE_KEY`), send one
 legacy ERC-20 `approve` on mainnet USDC granting the Universal Router an
 allowance:
 
 - **Token (USDC):** `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`
 - **Spender (Universal Router):** `0x66a9893cc07d91d95644aedd05d03f95e1dba8af`
-- **Amount:** enough to cover the swaps you intend — a large or max allowance
+- **Amount:** enough to cover the swaps you intend; a large or max allowance
   avoids repeating this step for every trade.
 
 Both addresses are pinned in `src/engine/constants.ts`. Use any wallet or script
