@@ -43,6 +43,35 @@ describe("log redaction", () => {
     expect(serialized).not.toContain('"x"');
   });
 
+  test("redact scrubs secrets nested inside arrays", () => {
+    const out = redact({ list: [{ apiKey: "k" }] }) as {
+      list: [{ apiKey: string }];
+    };
+    expect(out.list[0].apiKey).toBe("[redacted]");
+  });
+
+  test("redact scrubs long hex strings inside arrays", () => {
+    const longHex = "0x" + "ab".repeat(40);
+    const out = redact({ hexes: [longHex] }) as { hexes: string[] };
+    expect(out.hexes[0]).not.toContain(longHex);
+  });
+
+  test("log does not throw on BigInt fields and never emits the raw secret", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(() => log("info", { amount: 10n, apiKey: "topsecret" })).not.toThrow();
+    const serialized = spy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(serialized).not.toContain("topsecret");
+  });
+
+  test("log does not throw on circular references and never emits the raw secret", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const circular: Record<string, unknown> = { apiKey: "topsecret" };
+    circular.self = circular;
+    expect(() => log("info", circular)).not.toThrow();
+    const serialized = spy.mock.calls.map((c) => c.join(" ")).join(" ");
+    expect(serialized).not.toContain("topsecret");
+  });
+
   test("toErrorEnvelope runs the same redaction pass", () => {
     const longHex = "ab".repeat(40);
     const envelope = toErrorEnvelope("internal", "leak 0x" + longHex);
