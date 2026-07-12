@@ -52,7 +52,10 @@ function stubFetch(replies: unknown[]) {
   let i = 0;
   const fetchImpl = (async (url: string, init: RequestInit) => {
     calls.push({ url: String(url), init });
-    const reply = replies[i++];
+    // Repeat the last queued reply once exhausted so retry attempts see the
+    // same status (the retry layer may re-issue idempotent 429/5xx calls).
+    const reply =
+      i < replies.length ? replies[i++] : replies[replies.length - 1];
     if (isControlReply(reply)) {
       if (reply.kind === "status") {
         return {
@@ -228,6 +231,8 @@ describe("TradingApiClient shapes", () => {
         baseUrl: BASE_URL,
         getApiKey: () => API_KEY,
         fetchImpl,
+        // no-op sleep: this test only asserts the terminal error, not backoff timing.
+        sleep: async () => {},
       });
       await expect(
         client.getQuote({
@@ -245,6 +250,8 @@ describe("TradingApiClient shapes", () => {
       baseUrl: BASE_URL,
       getApiKey: () => API_KEY,
       fetchImpl,
+      // no-op sleep: this test only asserts the terminal error, not backoff timing.
+      sleep: async () => {},
     });
     await expect(
       client.checkApproval({
