@@ -145,11 +145,11 @@
       "deps": [
         "T2"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "bb9ffe6",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "7b5585d",
+      "quality_review_sha": "bb9ffe6",
       "blocker_count": 0
     },
     {
