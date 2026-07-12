@@ -87,11 +87,11 @@
         "T2",
         "T3"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "81fdb14e8e89deac083e4914993e0c34248ea4bf",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "1ce09f84b1efa84e43bae101334eeb19823cf64b",
+      "quality_review_sha": "81fdb14e8e89deac083e4914993e0c34248ea4bf",
       "blocker_count": 0
     },
     {
