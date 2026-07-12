@@ -355,11 +355,11 @@
       "deps": [
         "T18"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "9b2a0f60f2f6e63a34a8d95f8ba596e6820f0639",
       "task_start_sha": "c6c2fec4eab61aa289b2fa70b72300a016b4acef",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "9b2a0f60f2f6e63a34a8d95f8ba596e6820f0639",
+      "quality_review_sha": "9b2a0f60f2f6e63a34a8d95f8ba596e6820f0639",
       "blocker_count": 0
     },
     {
