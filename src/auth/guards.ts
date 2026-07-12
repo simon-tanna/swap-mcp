@@ -12,7 +12,8 @@ export function transportGuard(req: Request, allowedOrigins: string[]): void {
   if (origin === null || !allowedOrigins.includes(origin)) {
     throw new AppError("forbidden");
   }
-  if (req.headers.get("MCP-Protocol-Version") === null) {
+  const version = req.headers.get("MCP-Protocol-Version");
+  if (!version) {
     throw new AppError("invalid_input");
   }
 }

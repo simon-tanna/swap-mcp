@@ -43,6 +43,61 @@ describe("transportGuard", () => {
       );
     }
   });
+
+  test("rejects an empty-string MCP-Protocol-Version header", () => {
+    const emptyVersion = reqWithHeaders({
+      Origin: "https://claude.ai",
+      "MCP-Protocol-Version": "",
+    });
+    expect(() => transportGuard(emptyVersion, allowedOrigins)).toThrow(
+      AppError,
+    );
+    try {
+      transportGuard(emptyVersion, allowedOrigins);
+      throw new Error("expected transportGuard to throw");
+    } catch (err) {
+      expect(err instanceof AppError && err.code === "invalid_input").toBe(
+        true,
+      );
+    }
+  });
+
+  test("rejects an empty allowedOrigins allowlist even for a plausible origin", () => {
+    const req = reqWithHeaders({
+      Origin: "https://claude.ai",
+      "MCP-Protocol-Version": "2025-06-18",
+    });
+    try {
+      transportGuard(req, []);
+      throw new Error("expected transportGuard to throw");
+    } catch (err) {
+      expect(err instanceof AppError && err.code === "forbidden").toBe(true);
+    }
+  });
+
+  test("rejects Origin values that differ from the allowlist only by trailing slash or case", () => {
+    const trailingSlash = reqWithHeaders({
+      Origin: "https://claude.ai/",
+      "MCP-Protocol-Version": "2025-06-18",
+    });
+    try {
+      transportGuard(trailingSlash, allowedOrigins);
+      throw new Error("expected transportGuard to throw");
+    } catch (err) {
+      expect(err instanceof AppError && err.code === "forbidden").toBe(true);
+    }
+
+    const differentCase = reqWithHeaders({
+      Origin: "https://Claude.AI",
+      "MCP-Protocol-Version": "2025-06-18",
+    });
+    try {
+      transportGuard(differentCase, allowedOrigins);
+      throw new Error("expected transportGuard to throw");
+    } catch (err) {
+      expect(err instanceof AppError && err.code === "forbidden").toBe(true);
+    }
+  });
 });
 
 describe("assertAudience", () => {
@@ -57,6 +112,24 @@ describe("assertAudience", () => {
     expect(() =>
       assertAudience({ resource: canonicalUri }, canonicalUri),
     ).not.toThrow();
+  });
+
+  test("fails closed on a trailing-slash resource (no normalization)", () => {
+    try {
+      assertAudience({ resource: canonicalUri + "/" }, canonicalUri);
+      throw new Error("expected assertAudience to throw");
+    } catch (err) {
+      expect(err instanceof AppError && err.code === "forbidden").toBe(true);
+    }
+  });
+
+  test("fails closed on an empty resource (no normalization)", () => {
+    try {
+      assertAudience({ resource: "" }, canonicalUri);
+      throw new Error("expected assertAudience to throw");
+    } catch (err) {
+      expect(err instanceof AppError && err.code === "forbidden").toBe(true);
+    }
   });
 });
 
@@ -78,6 +151,15 @@ describe("requireScope", () => {
     };
     try {
       requireScope(noScopes, "swap:read");
+      throw new Error("expected requireScope to throw");
+    } catch (err) {
+      expect(err instanceof AppError && err.code === "forbidden").toBe(true);
+    }
+  });
+
+  test("fails closed on an empty scopes array", () => {
+    try {
+      requireScope({ scopes: [] }, "swap:read");
       throw new Error("expected requireScope to throw");
     } catch (err) {
       expect(err instanceof AppError && err.code === "forbidden").toBe(true);
