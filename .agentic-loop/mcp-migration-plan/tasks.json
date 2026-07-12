@@ -515,9 +515,9 @@
       "deps": [
         "T2"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "126b7900caf88827b01efea14af183a6804727a6",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
