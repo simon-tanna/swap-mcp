@@ -298,9 +298,9 @@
         "T13",
         "T15"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "e279789",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
