@@ -78,10 +78,27 @@ any new migration tags, and publishes the Worker.
 pnpm smoke
 ```
 
-This runs `scripts/smoke.ts` (wired as the `smoke` script in `package.json`),
-which exercises the deployed surfaces end-to-end. If the script file is not yet
-present in your tree, pull the latest `main`; the smoke script lands with the
-deployment tooling.
+This runs [`scripts/smoke.ts`](../../scripts/smoke.ts) (wired as the `smoke`
+script in `package.json`), which exercises the deployed surfaces end-to-end
+against a **real** environment: it mints a token through the real OAuth consent
+dance, then runs a tiny live ETH→USDC quote and swap and prints the persisted
+row. It is **manual-only** — the automated test suite never runs it, and it hits
+the real chain and the real Trading API, so it needs a deployed base URL and a
+funded key.
+
+Set these in your shell before running (the first two are always required):
+
+```bash
+export SWAP_MCP_BASE_URL=https://your-worker.workers.dev
+export AUTH_PASSPHRASE=…   # the consent passphrase
+```
+
+To also send the one-time USDC→Universal Router approval that the
+[`USDC_TO_ETH` direction requires](one-time-usdc-approval.md), run
+`pnpm smoke -- --approve` with `SWAP_PRIVATE_KEY` and `ETH_RPC_URL` also
+exported. The script never sends an approval unprompted: `--approve` still asks
+for an interactive `yes` before broadcasting. Without `--approve` it only
+describes the approval it would send.
 
 ## Operational tradeoff: the global rate-limit lockout
 
