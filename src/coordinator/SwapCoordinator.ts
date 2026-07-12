@@ -114,6 +114,10 @@ export class SwapCoordinator extends DurableObject<CloudflareBindings> {
 
     // Chain onto the tail regardless of the prior call's outcome, so a rejection
     // never breaks serialization; the caller still observes THIS run's result.
+    // run and #tail intentionally diverge: #tail is the swallowed tail for the
+    // next caller's chain; run (returned) is the unswallowed promise THIS caller
+    // observes — do not collapse into one expression (it would hide the caller's
+    // rejection).
     const run = this.#tail.then(doWork, doWork);
     this.#tail = run.catch(() => {});
     return run;

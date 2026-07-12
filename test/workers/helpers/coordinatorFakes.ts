@@ -11,6 +11,22 @@ import type {
 import type { SwapServiceDeps } from "../../../src/services/swapService";
 import { quoteClassic, swapNested } from "../../fixtures/tradingApi";
 
+/**
+ * Yield the event loop across `ticks` microtask boundaries, WIDENING the window
+ * during which a concurrent (unserialized) caller could interleave. Awaiting this
+ * inside an engine hook parks the current swap for many microtasks; without the
+ * DO mutex a second `executeSwap` chain — whose own continuations are queued on
+ * the same microtask queue — will provably run its hooks during this park. With
+ * the mutex the second chain cannot begin at all until the first fully settles,
+ * so no interleaving is observable. Chosen large enough (default 50) that any
+ * residual scheduling jitter cannot close the window: detection is deterministic.
+ */
+export async function microtaskDrain(ticks = 50): Promise<void> {
+  for (let i = 0; i < ticks; i++) {
+    await Promise.resolve();
+  }
+}
+
 /** Pinned signer address for the fake signer, distinct from the quote fixtures' swapper. */
 export const SIGNER_ADDRESS = "0x3333333333333333333333333333333333333333";
 /** A plausible broadcast tx hash returned by the fake signer's sendTransaction. */

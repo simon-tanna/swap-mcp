@@ -11,6 +11,7 @@ import {
   ethToUsdcInput,
   fakeSigner,
   makeDeps as makeDepsWithRepo,
+  microtaskDrain,
 } from "./helpers/coordinatorFakes";
 import type { ViemSigner } from "../../src/engine/viemSigner";
 import type { SwapServiceDeps } from "../../src/services/swapService";
@@ -44,38 +45,44 @@ describe("SwapCoordinator concurrency", () => {
     const id = env.SWAP_COORDINATOR.idFromName("serialized");
     const stub = env.SWAP_COORDINATOR.get(id);
 
-    // Each swap records the wall-clock window of its ENGINE work: sendTransaction
-    // enter marks window-open, waitForReceipt exit marks window-close. With the
-    // mutex, swap B's window must start strictly after swap A's window closes.
-    type Window = { open?: number; close?: number };
-    const windows: Window[] = [];
+    // STRUCTURAL ordering guard: each swap pushes a tagged event SYNCHRONOUSLY at
+    // the two edges of its engine window — "<tag>-open" at the start of its
+    // sendTransaction, "<tag>-close" at the end of its waitForReceipt. Because
+    // pushes are synchronous, the array captures the true happens-before order of
+    // the hooks with no timer ties and no `>=` comparison. Under the mutex the
+    // only legal sequence is A fully before B; any interleaving (B opening inside
+    // A's still-open window) reorders the array and fails the exact-equality
+    // assertion. To make the missing-mutex case DETERMINISTIC, each swap parks
+    // across a wide microtask drain between open and close — without the mutex
+    // swap B's chain provably runs its own sendTransaction during A's park.
+    const sequence: string[] = [];
 
-    // Distinct tx hashes per call so waitForReceipt can be gated per-swap.
+    // Distinct tx hashes per call so waitForReceipt can be tagged per-swap; the
+    // send order assigns the tag, so the FIRST-launched call is "A".
     const hashes = [
       "0x1111111111111111111111111111111111111111111111111111111111111111",
       "0x2222222222222222222222222222222222222222222222222222222222222222",
     ];
+    const tagFor = new Map<string, string>();
     let sendCount = 0;
 
     await runInDurableObject(stub, async (instance: SwapCoordinator) => {
-      // One shared signer: sendTransaction opens the next window slot by call
-      // order; waitForReceipt parks across several microtasks to WIDEN the span
-      // during which a concurrent swap could interleave, then closes the window.
-      // Without the mutex, swap B's sendTransaction (window open) fires while
-      // swap A is still parked in waitForReceipt (before window A closes) — an
-      // OVERLAP the disjoint-window assertion below catches.
       const signer = fakeSigner({
         async sendTransaction() {
           const idx = sendCount++;
-          windows[idx] = { open: performance.now() };
-          return hashes[idx];
+          const tag = idx === 0 ? "A" : "B";
+          const hash = hashes[idx];
+          tagFor.set(hash, tag);
+          // Synchronous window-open marker: nothing has yielded yet this tick.
+          sequence.push(`${tag}-open`);
+          return hash;
         },
         async waitForReceipt(hash) {
-          const idx = hashes.indexOf(hash);
-          const gate = deferred();
-          queueMicrotask(() => queueMicrotask(() => gate.resolve()));
-          await gate.promise;
-          windows[idx].close = performance.now();
+          const tag = tagFor.get(hash)!;
+          // Widen the interleaving window: without the mutex, the OTHER swap's
+          // sendTransaction ("B-open") lands here, between this open and close.
+          await microtaskDrain();
+          sequence.push(`${tag}-close`);
           return { kind: "success", gasUsed: 21000n };
         },
       });
@@ -87,28 +94,32 @@ describe("SwapCoordinator concurrency", () => {
       await Promise.all([pA, pB]);
     });
 
-    expect(windows).toHaveLength(2);
-    expect(windows[0].open).toBeDefined();
-    expect(windows[0].close).toBeDefined();
-    expect(windows[1].open).toBeDefined();
-    expect(windows[1].close).toBeDefined();
-
-    // The invariant: swap B's window opens strictly after swap A's window closes.
-    // Without the mutex the windows overlap (B opens before A closes) and this
-    // fails; with the promise-chain mutex they are disjoint and ordered.
-    expect(windows[1].open!).toBeGreaterThanOrEqual(windows[0].close!);
+    // The mutex admits EXACTLY this order: A's whole window, then B's whole
+    // window. Without it, B-open interleaves before A-close and this fails.
+    expect(sequence).toEqual(["A-open", "A-close", "B-open", "B-close"]);
   });
 
   test("no overlapping submit and nonce order preserved", async () => {
     const id = env.SWAP_COORDINATOR.idFromName("nonce-order");
     const stub = env.SWAP_COORDINATOR.get(id);
 
-    // A shared nonce counter incremented on each submit; recorded per call. Under
-    // serialization the recorded sequence is strictly increasing in call order.
+    // NON-OVERLAP guard: a wallet must never submit tx N+1 while tx N is still
+    // in flight (unconfirmed) — that is what would burn or collide a nonce. We
+    // capture submit/confirm as SYNCHRONOUS tagged edges: "submit-k" pushed at
+    // the top of the k-th sendTransaction, "confirm-k" pushed at the end of that
+    // swap's waitForReceipt. A concurrent (unserialized) run interleaves the next
+    // submit INSIDE the previous swap's in-flight window (before its confirm),
+    // because each waitForReceipt parks across a wide microtask drain. Under the
+    // mutex the drain cannot overlap: each swap's submit→confirm pair is atomic,
+    // so the recorded edges are strictly [submit-0,confirm-0,submit-1,...]. The
+    // recorded nonces are checked too, but the EDGE sequence is the real guard —
+    // it fails deterministically the instant a submit lands inside an open flight.
     let nonce = 0;
     const recordedNonces: number[] = [];
+    const flightEdges: string[] = [];
     const hashPrefix =
       "0xabc0000000000000000000000000000000000000000000000000000000000000";
+    const nonceForHash = new Map<string, number>();
     let sendCount = 0;
 
     await runInDurableObject(stub, async (instance: SwapCoordinator) => {
@@ -116,14 +127,19 @@ describe("SwapCoordinator concurrency", () => {
         async sendTransaction() {
           const assigned = nonce++;
           recordedNonces.push(assigned);
-          // Unique hash per call so downstream waits are unambiguous.
+          // Synchronous submit edge for this in-flight window.
+          flightEdges.push(`submit-${assigned}`);
           const n = sendCount++;
-          return hashPrefix.slice(0, -1) + String(n);
+          const hash = hashPrefix.slice(0, -1) + String(n);
+          nonceForHash.set(hash, assigned);
+          return hash;
         },
-        async waitForReceipt() {
-          const gate = deferred();
-          queueMicrotask(() => gate.resolve());
-          await gate.promise;
+        async waitForReceipt(hash) {
+          const assigned = nonceForHash.get(hash)!;
+          // Hold the flight OPEN across a wide window; without the mutex the next
+          // swap's submit edge lands here, before this confirm edge.
+          await microtaskDrain();
+          flightEdges.push(`confirm-${assigned}`);
           return { kind: "success", gasUsed: 21000n };
         },
       });
@@ -136,6 +152,17 @@ describe("SwapCoordinator concurrency", () => {
     });
 
     expect(recordedNonces).toHaveLength(3);
+    // Each submit→confirm flight is atomic under the mutex: no submit lands inside
+    // another swap's still-open flight window. Without the mutex a later submit
+    // interleaves before the prior confirm and this exact-order assertion fails.
+    expect(flightEdges).toEqual([
+      "submit-0",
+      "confirm-0",
+      "submit-1",
+      "confirm-1",
+      "submit-2",
+      "confirm-2",
+    ]);
     // Strictly increasing in call order — no interleaving reordered the submits.
     for (let i = 1; i < recordedNonces.length; i++) {
       expect(recordedNonces[i]).toBeGreaterThan(recordedNonces[i - 1]);
@@ -184,20 +211,26 @@ describe("SwapCoordinator concurrency", () => {
     const outsideRepo = createTransactionsRepository(
       drizzle(env.DB, { schema }),
     );
-    const rows = await db.query.swaps.findMany({
-      where: eq(swaps.txHash, parkedHash),
-    });
-    expect(rows).toHaveLength(1);
-    const submittedId = rows[0].id;
-    const midRow = await outsideRepo.findById(submittedId);
-    expect(midRow).toBeDefined();
-    expect(midRow!.status).toBe("submitted");
-    expect(midRow!.txHash).toBe(parkedHash);
-    // The call has NOT resolved yet — the row is live-visible mid-flight.
-    expect(settled).toBe(false);
+    let submittedId: string;
+    try {
+      const rows = await db.query.swaps.findMany({
+        where: eq(swaps.txHash, parkedHash),
+      });
+      expect(rows).toHaveLength(1);
+      submittedId = rows[0].id;
+      const midRow = await outsideRepo.findById(submittedId);
+      expect(midRow).toBeDefined();
+      expect(midRow!.status).toBe("submitted");
+      expect(midRow!.txHash).toBe(parkedHash);
+      // The call has NOT resolved yet — the row is live-visible mid-flight.
+      expect(settled).toBe(false);
+    } finally {
+      // Always release the parked receipt, even if an assertion above threw, so
+      // the DO's inner executeSwap promise can never be left unresolved.
+      release.resolve();
+    }
 
-    // Release the parked receipt and confirm the call resolves terminally.
-    release.resolve();
+    // Confirm the call resolves terminally now that the receipt is released.
     const result = await runPromise;
     expect(settled).toBe(true);
     expect(result.transactionId).toBe(submittedId);
