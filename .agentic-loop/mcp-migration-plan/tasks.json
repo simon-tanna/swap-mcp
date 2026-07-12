@@ -123,11 +123,11 @@
       "deps": [
         "T3"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "5775b92",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "8926080",
+      "quality_review_sha": "5775b92",
       "blocker_count": 0
     },
     {
