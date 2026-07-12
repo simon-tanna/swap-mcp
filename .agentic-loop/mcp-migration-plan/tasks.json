@@ -615,9 +615,9 @@
       "deps": [
         "T31"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "8904bb2e46c2c50e7bd590a39766ed25a1461585",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
