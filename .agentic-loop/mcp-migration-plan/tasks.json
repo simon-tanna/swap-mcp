@@ -218,11 +218,11 @@
       "deps": [
         "T3"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "4608a2d",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "7826cd7",
+      "quality_review_sha": "4608a2d",
       "blocker_count": 0
     },
     {
