@@ -47,6 +47,10 @@
         "name": "SwapMcpAgent",
         "class_name": "SwapMcpAgent",
       },
+      {
+        "name": "RATE_LIMITER",
+        "class_name": "RateLimiter",
+      },
     ],
   },
   // A single `v1` tag whose `new_sqlite_classes` grows across later tasks; SQLite-backed
@@ -54,10 +58,12 @@
   // NOTE: a real `wrangler deploy` needs a fresh tag (`v2`) to introduce SwapMcpAgent —
   // per T18's migrations-tag note, an already-applied tag must not gain classes. Growing
   // `v1` in place is boot-safe LOCALLY ONLY (no deploy mid-build); split to `v2` before deploy.
+  // Likewise, RateLimiter needs its own fresh tag (`v3`) on a real deploy — do not add it to
+  // an already-applied tag; growing `v1` in place stays boot-safe LOCALLY ONLY.
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["SwapCoordinator", "SwapMcpAgent"],
+      "new_sqlite_classes": ["SwapCoordinator", "SwapMcpAgent", "RateLimiter"],
     },
   ],
   // "r2_buckets": [
