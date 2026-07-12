@@ -165,44 +165,42 @@ describe("MCP read tools", () => {
     expect(result.content[0].type).toBe("text");
   });
 
-  describe("get_quote requires swap:read", () => {
-    test("missing scope yields a forbidden envelope", async () => {
-      const client = await connect(
-        makeDeps({
-          getProps: () => ({
-            userId: "single-user",
-            scopes: [],
-            resource: CANONICAL,
-          }),
+  test("get_quote requires swap:read", async () => {
+    // missing scope → forbidden
+    const missingScopeClient = await connect(
+      makeDeps({
+        getProps: () => ({
+          userId: "single-user",
+          scopes: [],
+          resource: CANONICAL,
         }),
-      );
-      const result = await call(client, "get_quote", {
-        direction: "ETH_TO_USDC",
-        amountIn: "1000000000000000000",
-      });
-
-      expect(result.isError).toBe(true);
-      expect(errorOf(result).code).toBe("forbidden");
+      }),
+    );
+    const missingScopeResult = await call(missingScopeClient, "get_quote", {
+      direction: "ETH_TO_USDC",
+      amountIn: "1000000000000000000",
     });
 
-    test("wrong audience yields a forbidden envelope (per-tool assertAudience)", async () => {
-      const client = await connect(
-        makeDeps({
-          getProps: () => ({
-            userId: "single-user",
-            scopes: ["swap:read"],
-            resource: "https://attacker.example/mcp",
-          }),
-        }),
-      );
-      const result = await call(client, "get_quote", {
-        direction: "ETH_TO_USDC",
-        amountIn: "1000000000000000000",
-      });
+    expect(missingScopeResult.isError).toBe(true);
+    expect(errorOf(missingScopeResult).code).toBe("forbidden");
 
-      expect(result.isError).toBe(true);
-      expect(errorOf(result).code).toBe("forbidden");
+    // wrong audience (per-tool assertAudience) → forbidden
+    const wrongAudienceClient = await connect(
+      makeDeps({
+        getProps: () => ({
+          userId: "single-user",
+          scopes: ["swap:read"],
+          resource: "https://attacker.example/mcp",
+        }),
+      }),
+    );
+    const wrongAudienceResult = await call(wrongAudienceClient, "get_quote", {
+      direction: "ETH_TO_USDC",
+      amountIn: "1000000000000000000",
     });
+
+    expect(wrongAudienceResult.isError).toBe(true);
+    expect(errorOf(wrongAudienceResult).code).toBe("forbidden");
   });
 
   test("get_transaction returns the live row", async () => {
