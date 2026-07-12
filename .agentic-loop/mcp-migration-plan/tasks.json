@@ -665,3 +665,6 @@
       "blocker_count": 0,
       "refinement_sha": "406a04aea306ce8c20b21c83a46cd130f3250be5",
       "refinement_note": "T34 review fix: dropped dead client-side UNISWAP_API_KEY (worker holds it server-side) + pinned the approval log to the broadcast maxAllowance constant. Spec-compliance re-review cleared the important finding; quality/safety re-confirmed no regression (key never logged, approval still double-gated). Atomic TDD commit is 4d40629 (carries test/node/smoke-presence.test.ts + TDD: line)."
+    }
+  ]
+}
