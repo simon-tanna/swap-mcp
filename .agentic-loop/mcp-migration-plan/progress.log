@@ -107,3 +107,11 @@
   * Optionally tighten leak test with `expect(row.errorCode).toBe(<classify default>)`.
 - Gate: 119/119 tests, prettier clean, tsc clean.
 - NOTE: push disabled this run (origin SSH key rejected; user chose local-only). Commits durable locally only.
+
+## T20 — Receipt timeout vs revert disambiguation (M3) — DONE 2026-07-12
+- Commit 78c591a. Added test/workers/coordinator-receipt.test.ts (5 tests). NO production change — T17 executeSwap already M3-correct: timeout AND unknown both fall through to submitted/timed_out; only reverted writes failed+swap_failed WITH txHash retained.
+- All 5 regression-pinned; deliberate-inversion applied to each (test3 unknown-branch inversion confirmed unknown is NOT conflated with reverted). Test5 captures real timeoutMs arg via closure → bounded by deadlineSeconds×1000 (default 1_200_000; explicit 42s→42000). Not a hardcoded false-green.
+- Both reviews: spec APPROVED; quality APPROVE-WITH-NITS. One IMPORTANT (cross-file): 3rd near-dup copy of coordinator test fakes had drifted.
+- RESOLVED important finding via refactor commit 8d99a7a: extracted test/workers/helpers/coordinatorFakes.ts (superset fakes), updated all 3 coordinator test files to import it (−120 net lines), removed T19's dead `void checkApprovalNull` + unused import. Behavior-preserving: 124 tests unchanged, tsc+prettier clean.
+- PATTERN for T21–T24 (more coordinator workers-pool tests): import fakes from ./helpers/coordinatorFakes — do NOT re-copy. fakeSigner(opts) supports waitForReceipt(hash,timeoutMs), sendTransaction, getNativeBalance overrides; fakeTradingApi(opts) supports checkApproval/getQuote/buildSwap overrides; makeDeps(signer, repo, tradingApi?).
+- Minor (logged, not blocking): tautological `expect([...statuses]).toContain(row.status)` in receipt test 1 — low-value, drop on next touch. TX_HASH fixture is 66 hex chars (33 bytes vs real 32) — consistent across files, fix all together if ever validated.
