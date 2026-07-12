@@ -123,3 +123,13 @@
 - Re-review APPROVED: pre-mutex both tests fail 3/3 deterministically; with mutex 3/3 pass, no flake. 127 tests / 21 files green.
 - LESSON: for concurrency regression guards, ALWAYS verify the test fails against the pre-fix code (deterministically). A green concurrency test proves nothing unless removal of the primitive makes it red. Structural synchronous event-order assertions > timestamp comparisons. This applies to any future serialization/locking tests.
 - PATTERN: microtaskDrain in helpers/coordinatorFakes.ts is reusable for inducing deterministic interleaving windows.
+
+## T22 — MCP read-tool registrars (get_quote, get_transaction, list_transactions) — DONE 2026-07-12
+- Feature commit 9a93d2a: created src/mcp/tools/{deps,guarded,getQuote,getTransaction,listTransactions}.ts + test/workers/mcp-read-tools.test.ts (8 tests). context7-verified @modelcontextprotocol/sdk@1.29.0 API: server.registerTool(name,{inputSchema},handler) with inputSchema = bare ZodRawShape (Zod v4, NOT z.object); InMemoryTransport.createLinkedPair(); client.callTool({name,arguments}) → {content,structuredContent,isError}. Tool failures resolve as isError:true results, not throws.
+- Shared guarded(deps, scope, work) helper (guarded.ts): assertAudience(props, canonicalMcpUri) → requireScope(props,"swap:read") → work → try/catch → toErrorEnvelope(classify(e), CURATED_MESSAGE[code]). Audience gate runs PER-REGISTRAR (Major 4), not just transport. e.message NEVER forwarded → no leak (security review verified non-vacuously).
+- DEVIATION (accepted, spec-faithful): ToolDeps.service.getQuote typed as bound thunk (input)=>Promise<QuoteResult> not `typeof getQuote`, because ToolDeps carries no TradingApiClient; the T23/wiring layer binds engine deps. Honest typing, no `as any`.
+- REVIEW: security/quality APPROVED (0 crit/imp; verified gate ordering, fail-closed, no-leak, not_found≠internal, bare Zod shapes — all non-vacuous). spec-compliance APPROVED with 1 important = test-name #2 was a describe() wrapper not a single test().
+- Fix commit 9f2df7f: folded describe("get_quote requires swap:read") into a single test() carrying both missing-scope + wrong-audience forbidden assertions. Behavior-preserving (135→134 tests, one fold), only test file changed.
+- Gate: 134 tests / 22 files green, tsc+prettier clean.
+- PATTERN for T23 (execute_swap registrar): reuse guarded() with scope "swap:write"; ToolDeps.coordinator.executeSwap already carried. Reuse CURATED_MESSAGE map. Register via server.registerTool with bare ZodRawShape.
+- OPTIONAL follow-ups (minor, non-blocking): (a) type service.getQuote via Parameters<typeof getQuote>[1] to catch drift; (b) content[0].text is full JSON.stringify — could be a short human summary instead.

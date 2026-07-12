@@ -416,11 +416,11 @@
         "T16",
         "T18"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "9a93d2a9d0ad9ab8ae207195a0e59a92164aa335",
       "task_start_sha": "6c26e571f752f67e459225c68dddc63c67d2ab24",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "9f2df7f73ae491a4710c15a09266b70b78b06539",
+      "quality_review_sha": "9a93d2a9d0ad9ab8ae207195a0e59a92164aa335",
       "blocker_count": 0
     },
     {
