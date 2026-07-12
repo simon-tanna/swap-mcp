@@ -243,7 +243,9 @@
       "task_start_sha": "043413fb87d5a5bce09e8ce74953817bdadb5857",
       "spec_review_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
       "quality_review_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
-      "blocker_count": 0
+      "blocker_count": 0,
+      "refinement_sha": "ebc17fb17930be59e92ae5ea59b0add1f5f6a7ae",
+      "refinement_note": "Zod boundary-validation of trading api responses (replaced `as` casts); validating-specs REVISE->resolved; both reviews clean."
     },
     {
       "id": "T14",
