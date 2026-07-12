@@ -40,6 +40,25 @@ export function classify(err: unknown): ErrorCode {
   return err instanceof AppError ? err.code : "internal";
 }
 
+/**
+ * Curated, caller-safe messages for every allowlisted error code. Shared
+ * between the MCP tool envelopes (`guarded.ts`) and the REST error mapping
+ * (`api/middleware/props.ts`) so both surfaces expose byte-identical, non-leaking text.
+ */
+export const CURATED_MESSAGE: Record<ErrorCode, string> = {
+  invalid_input: "The request was malformed or out of range.",
+  unauthorized: "Authentication is required.",
+  forbidden: "The caller is not permitted to perform this action.",
+  not_found: "No matching record was found.",
+  slippage_exceeded: "The quoted price moved beyond the allowed tolerance.",
+  insufficient_balance: "The wallet balance is insufficient for this swap.",
+  approval_required: "A token approval is required before this swap.",
+  upstream_unavailable: "An upstream service is temporarily unavailable.",
+  rate_limited: "Too many requests; please retry later.",
+  swap_failed: "The swap did not complete successfully.",
+  internal: "An unexpected internal error occurred.",
+};
+
 /** Build the MCP error envelope from an allowlisted code and a curated public message. */
 export function toErrorEnvelope(
   code: ErrorCode,
