@@ -1,4 +1,14 @@
-# plan-validation.md — validating-specs merged report on plan.md (iteration 1)
+# plan-validation.md — validating-specs merged report on plan.md (iteration 2 — FINAL)
+
+## Iteration 2: fix-verification result → GO
+
+Two parallel spec-design-validator instances (security+scope; domain+execution+architecture) verified the fix pass. **Every prior finding — the Blocker (mintTestToken KV-injection replaced by workers-pool getProps-seam tests against the real registrar + real route), all 6 Majors (rail-after-buildSwap incl. spec v3.2 §5.8 renumber, ReceiptOutcome `unknown` branch, G9 REST integration half, transport-guard/audience wiring assertions, leak-channel coverage, T1 oracle + T19/T32 relabel), and the full minor batch — is VERIFIED-FIXED with cited line evidence.** The controller's T6 workers-pool placement was independently confirmed correct and boot-safe at its sequence position. Fresh-eyes sweeps found zero new blockers/majors — only 3 non-blocking traceability nits, 2 of which the controller applied (helpers gloss reword; scope-seam.test.ts added to the created-once inventory) and 1 needing no change (G9 row accurate as written). Spec v3.2's renumbering is contiguous with no stale references; tasks.json parses and matches the plan.
+
+**Final verdict: GO** — zero blockers, zero majors, plan-review.md verdict approved with empty critical/important. The plan is locked; implementation can start.
+
+---
+
+# Iteration 1 report (historical — all findings below now VERIFIED-FIXED)
 
 Run: 5 parallel spec-design-validator instances (execution, scope, architecture, security, domain — disjoint lenses) on plan.md (34 tasks), grounded in spec v3.1, interview-log decisions 1–26, research-stage2.md, and the live scaffold. Controller synthesis below.
 

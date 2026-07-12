@@ -30,7 +30,7 @@ Three points where the spec permitted implementer latitude; the plan records the
 
 ## File Structure
 
-Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers pool — DO/runtime), `test/integration/**` (workers pool, full-worker `exports.default.fetch()`), `test/fixtures/**` (recorded Trading API / receipt fixtures), `test/helpers/**` (token-mint helper), `test/setup/**` (migration setup file).
+Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers pool — DO/runtime), `test/integration/**` (workers pool, full-worker `exports.default.fetch()`), `test/fixtures/**` (recorded Trading API / receipt fixtures), `test/helpers/**` (production OAuth-dance token helper), `test/setup/**` (migration setup file).
 
 **Source & config**
 
@@ -76,7 +76,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 **Test files** (one per task, named in each task below).
 
-> **No double-create conflict.** Every file above is *created* by exactly one task; all subsequent touches are *modifications*. `vitest.config.ts`, `wrangler.jsonc`, `src/index.ts`, `src/services/swapService.ts`, `src/coordinator/SwapCoordinator.ts`, `src/engine/tradingApiClient.ts`, and `src/oauth/publicApp.ts` are each created once and modified by later tasks by design (spec-sanctioned incremental build-up).
+> **No double-create conflict.** Every file above is *created* by exactly one task; all subsequent touches are *modifications*. `vitest.config.ts`, `wrangler.jsonc`, `src/index.ts`, `src/services/swapService.ts`, `src/coordinator/SwapCoordinator.ts`, `src/engine/tradingApiClient.ts`, and `src/oauth/publicApp.ts` are each created once and modified by later tasks by design (spec-sanctioned incremental build-up). `test/workers/scope-seam.test.ts` is created once by T32 (the decision-26 read-only-token seam test).
 
 ---
 
