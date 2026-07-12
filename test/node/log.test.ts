@@ -72,6 +72,29 @@ describe("log redaction", () => {
     expect(serialized).not.toContain("topsecret");
   });
 
+  test("redact preserves shared (diamond) references and still catches real cycles", () => {
+    const shared = { apiKey: "k" };
+    const out = redact({ a: shared, b: shared }) as {
+      a: { apiKey: string };
+      b: { apiKey: string };
+    };
+    expect(out.a.apiKey).toBe("[redacted]");
+    expect(out.b.apiKey).toBe("[redacted]");
+    expect(out.b).not.toBe("[circular]");
+
+    const arrOut = redact({ list: [shared, shared] }) as {
+      list: [{ apiKey: string }, { apiKey: string }];
+    };
+    expect(arrOut.list[0].apiKey).toBe("[redacted]");
+    expect(arrOut.list[1].apiKey).toBe("[redacted]");
+    expect(arrOut.list[1]).not.toBe("[circular]");
+
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const cycOut = redact({ o: cyclic }) as { o: { self: unknown } };
+    expect(cycOut.o.self).toBe("[circular]");
+  });
+
   test("toErrorEnvelope runs the same redaction pass", () => {
     const longHex = "ab".repeat(40);
     const envelope = toErrorEnvelope("internal", "leak 0x" + longHex);

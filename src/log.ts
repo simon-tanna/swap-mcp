@@ -24,9 +24,14 @@ function redactValue(value: unknown, seen: WeakSet<object>): unknown {
   if (typeof value === "string") return scrubHex(value);
   if (!value || typeof value !== "object") return value;
   if (seen.has(value)) return "[circular]";
+  // Track only the current DFS/ancestor path: remove on return so shared
+  // (diamond) sibling references are not mistaken for cycles.
   seen.add(value);
-  if (Array.isArray(value)) return value.map((el) => redactValue(el, seen));
-  return redactRecord(value as Record<string, unknown>, seen);
+  const result = Array.isArray(value)
+    ? value.map((el) => redactValue(el, seen))
+    : redactRecord(value as Record<string, unknown>, seen);
+  seen.delete(value);
+  return result;
 }
 
 /** Redact each entry of a record, replacing secret-name values and scrubbing the rest. */
