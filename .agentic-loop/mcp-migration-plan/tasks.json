@@ -657,9 +657,9 @@
       "deps": [
         "T33"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "d366a99",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
