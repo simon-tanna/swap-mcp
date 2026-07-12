@@ -38,3 +38,8 @@ All rounds run interactively via AskUserQuestion. Answers are literal authorisat
 18. **API resilience**: 8s per-call timeout → upstream_unavailable; ≤2 jittered exp-backoff retries (250ms→500ms) for /quote and /check_approval only; never retry /swap or submitted txs.
 19. **Pagination**: Opaque cursor over createdAt+id; default limit 20, max 100.
 20. **Runbook**: Yes — docs how-to for reconciling swaps stranded in 'submitted'.
+
+## Round 6 (post validating-specs REVISE on spec v2)
+21. **Drift design**: Caller-supplied floor — execute_swap gains optional expectedAmountOut; if supplied, abort with slippage_exceeded when fresh quote output < expectedAmountOut × (1 − tolerance); if omitted, fresh quote is the baseline and the on-chain amountOutMinimum is the only rail.
+22. **DCR posture**: Open DCR + hardened consent — /register stays open (Claude connector needs it); consent page gets CSRF token bound to the auth request, prominent display of client name + exact redirect URI, strict redirect_uri validation.
+23. **Rate limiter (amends #16)**: RateLimiter Durable Object (strongly consistent) enforcing 5 failed/IP/10min AND a global 20 failed/10min budget across all IPs; IP from trusted CF-Connecting-IP only.
