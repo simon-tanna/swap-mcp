@@ -12,11 +12,11 @@
         "test/node/canary.test.ts"
       ],
       "deps": [],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "b401e7bae2601a8192b5897d42e65e734ef58cd7",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "34d25ebca6d1a19e5043eed3b032c0a68bea1045",
+      "quality_review_sha": "b401e7bae2601a8192b5897d42e65e734ef58cd7",
       "blocker_count": 0
     },
     {
