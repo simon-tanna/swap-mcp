@@ -31,3 +31,6 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+
+# agentic-loop state journal must stay tracked
+!.agentic-loop/**/*.log

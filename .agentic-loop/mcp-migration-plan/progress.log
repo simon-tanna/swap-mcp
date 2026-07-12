@@ -1,0 +1,9 @@
+[stage1] Ingested source + run-requirements; interactive mode; gate hooks registered.
+[stage1] Research complete: (A) agent-api blueprint (OAuthProvider sandwich, McpAgent DO, Drizzle/D1, vitest multi-pool); (B) Uniswap: Trading API + viem recommended, AlphaRouter non-viable on Workers; (C) CF: vitest4 cloudflareTest() plugin, defineWorkersConfig removed, OAuthProvider gives Claude-compatible AS metadata + DCR.
+[stage1] Interviews rounds 1-4 answered (see interview-log.md). Spec-planner (opus) dispatched.
+[stage1] NOTE: no git remote — git-sync commits locally, push fails silently until user adds origin.
+[stage1] Spec v1 reviewed: needs-changes (3 critical: unauthorised quote-drift/scopes/rate-limit + receipt-wait). Interview round 5 answered all 8 questions. Spec v2 drafted with §9 empty; open-questions.md cleared.
+[stage1] validating-specs on spec v2: REVISE. 7 Blockers (drift baseline undefined, drift math double-counts, CLASSIC shape unasserted, consent CSRF, open DCR, KV rate-limit unsound, vitest pool version pin wrong) + 13 Majors. 3 forks need human: drift design, DCR posture, rate-limit backend (amends decision 18).
+[stage1] Spec v3 drafted: all validation Blockers/Majors/minors folded in; new RateLimiter DO (5.17); expectedAmountOut drift floor; approval_required code; routing assertion; CSRF+DCR hardening; pool-workers ^0.18. Re-running both gates.
+[stage1] Re-validation: 30/30 v2 findings verified fixed. One new Major (amountOutMinimum mischaracterized for Trading API path) fixed in place per validator's prescribed rewrite → spec v3.1. Verdict GO. Structured review approved. Spec LOCKED, .state=plan. PAUSED at user request before Stage 2.
+[stage2] Mode A dispatch plan received & validated: 1 specialist (general-purpose, all 20 §5 components), 1 research item (agents .serve overload + vitest-pool-workers version/cloudflareTest + oauth-provider/viem/drizzle current APIs). Research agent dispatched.
