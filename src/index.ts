@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 export { SwapCoordinator } from "./coordinator/SwapCoordinator";
+export { SwapMcpAgent } from "./mcp/SwapMcpAgent";
 
 const app = new Hono();
 

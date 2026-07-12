@@ -1,6 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -24,24 +22,9 @@ import {
   listTransactionsInputShape,
 } from "../../src/mcp/tools/listTransactions";
 import type { ToolDeps } from "../../src/mcp/tools/deps";
+import { call, connectServer, errorOf } from "./helpers/mcpHarness";
 
 const CANONICAL = "https://swap.example/mcp";
-
-/** Shape the SDK returns from callTool, narrowed to what these assertions read. */
-type ToolResult = {
-  content: Array<{ type: string; text?: string }>;
-  structuredContent?: Record<string, unknown>;
-  isError?: boolean;
-};
-
-/** Read `structuredContent.error` when the result is an error envelope. */
-function errorOf(r: ToolResult): { code: unknown; message: unknown } {
-  const err = r.structuredContent?.error;
-  if (err === null || typeof err !== "object") {
-    throw new Error("expected an error envelope with structuredContent.error");
-  }
-  return err as { code: unknown; message: unknown };
-}
 
 /** A fixed quote fixture; `quotedAmountOut` is reusable as the expected floor. */
 const expectedAmountOut = "999000000";
@@ -126,29 +109,11 @@ function makeDeps(over: DepsOverrides = {}): ToolDeps {
 
 /** Stand up a real McpServer with all three read tools, wire an in-memory Client, return the client. */
 async function connect(deps: ToolDeps): Promise<Client> {
-  const server = new McpServer({ name: "test", version: "0.0.0" });
-  registerGetQuote(server, deps);
-  registerGetTransaction(server, deps);
-  registerListTransactions(server, deps);
-
-  const [clientTransport, serverTransport] =
-    InMemoryTransport.createLinkedPair();
-  const client = new Client({ name: "test-client", version: "0.0.0" });
-  await Promise.all([
-    client.connect(clientTransport),
-    server.connect(serverTransport),
-  ]);
-  return client;
-}
-
-/** Call a tool and narrow the SDK result to {@link ToolResult}. */
-async function call(
-  client: Client,
-  name: string,
-  args: Record<string, unknown>,
-): Promise<ToolResult> {
-  const raw = await client.callTool({ name, arguments: args });
-  return raw as ToolResult;
+  return connectServer(deps, (server, d) => {
+    registerGetQuote(server, d);
+    registerGetTransaction(server, d);
+    registerListTransactions(server, d);
+  });
 }
 
 describe("MCP read tools", () => {

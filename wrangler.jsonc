@@ -40,14 +40,24 @@
         "name": "SWAP_COORDINATOR",
         "class_name": "SwapCoordinator",
       },
+      // The binding NAME must equal the class name (`SwapMcpAgent`, NOT
+      // SCREAMING_SNAKE): `McpAgent.serve()` looks the DO up by class name, so
+      // renaming it for consistency with SWAP_COORDINATOR would break routing.
+      {
+        "name": "SwapMcpAgent",
+        "class_name": "SwapMcpAgent",
+      },
     ],
   },
   // A single `v1` tag whose `new_sqlite_classes` grows across later tasks; SQLite-backed
-  // DOs are required for the eager D1 lifecycle writes.
+  // DOs are required for the eager D1 lifecycle writes (and for McpAgent session state).
+  // NOTE: a real `wrangler deploy` needs a fresh tag (`v2`) to introduce SwapMcpAgent —
+  // per T18's migrations-tag note, an already-applied tag must not gain classes. Growing
+  // `v1` in place is boot-safe LOCALLY ONLY (no deploy mid-build); split to `v2` before deploy.
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["SwapCoordinator"],
+      "new_sqlite_classes": ["SwapCoordinator", "SwapMcpAgent"],
     },
   ],
   // "r2_buckets": [

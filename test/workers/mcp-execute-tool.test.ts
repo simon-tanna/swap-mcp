@@ -1,6 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, test, vi } from "vitest";
 
 import { AppError } from "../../src/errors";
@@ -10,24 +8,9 @@ import type { SwapResult } from "../../src/services/swapService";
 import type { ToolDeps } from "../../src/mcp/tools/deps";
 
 import { registerExecuteSwap } from "../../src/mcp/tools/executeSwap";
+import { call, connectServer, errorOf } from "./helpers/mcpHarness";
 
 const CANONICAL = "https://swap.example/mcp";
-
-/** Shape the SDK returns from callTool, narrowed to what these assertions read. */
-type ToolResult = {
-  content: Array<{ type: string; text?: string }>;
-  structuredContent?: Record<string, unknown>;
-  isError?: boolean;
-};
-
-/** Read `structuredContent.error` when the result is an error envelope. */
-function errorOf(r: ToolResult): { code: unknown; message: unknown } {
-  const err = r.structuredContent?.error;
-  if (err === null || typeof err !== "object") {
-    throw new Error("expected an error envelope with structuredContent.error");
-  }
-  return err as { code: unknown; message: unknown };
-}
 
 /** The coordinator port narrowed to just the executeSwap method the tool calls. */
 type ExecuteSwapFn = (
@@ -90,27 +73,7 @@ function makeDeps(over: DepsOverrides = {}): ToolDeps {
 
 /** Stand up a real McpServer with execute_swap, wire an in-memory Client, return the client. */
 async function connect(deps: ToolDeps): Promise<Client> {
-  const server = new McpServer({ name: "test", version: "0.0.0" });
-  registerExecuteSwap(server, deps);
-
-  const [clientTransport, serverTransport] =
-    InMemoryTransport.createLinkedPair();
-  const client = new Client({ name: "test-client", version: "0.0.0" });
-  await Promise.all([
-    client.connect(clientTransport),
-    server.connect(serverTransport),
-  ]);
-  return client;
-}
-
-/** Call a tool and narrow the SDK result to {@link ToolResult}. */
-async function call(
-  client: Client,
-  name: string,
-  args: Record<string, unknown>,
-): Promise<ToolResult> {
-  const raw = await client.callTool({ name, arguments: args });
-  return raw as ToolResult;
+  return connectServer(deps, registerExecuteSwap);
 }
 
 const VALID_INPUT = {
