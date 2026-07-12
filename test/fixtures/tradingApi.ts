@@ -69,6 +69,73 @@ export const quoteUnwrap = {
   permitData: null,
 } as const;
 
+/** CLASSIC `/quote` response with `quote` present but no `output.amount`; fails closed. */
+export const quoteClassicMissingOutput = {
+  routing: "CLASSIC",
+  quote: {
+    input: { token: NATIVE_ETH_SENTINEL, amount: "1000000000000000000" },
+    output: { token: USDC_ADDRESS },
+    slippage: 0.5,
+    route: [],
+    gasFee: "5000000000000000",
+    gasFeeUSD: "0.01",
+    gasUseEstimate: "150000",
+  },
+  permitData: null,
+} as const;
+
+/** CLASSIC `/quote` response with the `quote` key entirely absent; fails closed. */
+export const quoteClassicNoQuote = {
+  routing: "CLASSIC",
+  permitData: null,
+} as const;
+
+/**
+ * CLASSIC `/quote` carrying extras BOTH at the top level AND inside
+ * `quote.output` — the loose-preservation guard for the `/swap` re-spread.
+ */
+export const quoteClassicNestedExtras = {
+  routing: "CLASSIC",
+  quote: {
+    input: { token: NATIVE_ETH_SENTINEL, amount: "1000000000000000000" },
+    output: {
+      token: USDC_ADDRESS,
+      amount: "999000000",
+      syntheticOutputExtra: "nested-keep",
+    },
+    slippage: 0.5,
+    route: [],
+    gasFee: "5000000000000000",
+    gasFeeUSD: "0.01",
+    gasUseEstimate: "150000",
+    syntheticQuoteExtra: "quote-level-keep",
+  },
+  topLevelExtra: "top-keep",
+  permitData: null,
+  permitTransaction: null,
+} as const;
+
+/** `/swap` response with `swap` present but missing the `gasLimit` field; fails closed. */
+export const swapMissingField = {
+  swap: {
+    to: UNIVERSAL_ROUTER_ADDRESS,
+    from: FIXTURE_SWAPPER,
+    data: "0xfeed",
+    value: "1000000000000000000",
+    chainId: 1,
+  },
+} as const;
+
+/** Malformed `/check_approval` responses whose `approval` value violates the object-or-null contract. */
+export const checkApprovalMalformed = {
+  /** `approval` key entirely absent. */
+  missingKey: { detail: "no approval field" },
+  /** `approval` is a string, not an object or null. */
+  stringValue: { approval: "0xnotanobject" },
+  /** `approval` is an array, not an object or null. */
+  arrayValue: { approval: [] as unknown[] },
+} as const;
+
 /** DUTCH_V2 (UniswapX) `/quote` response — no `quote.output`; must fail closed. */
 export const quoteDutchV2 = {
   routing: "DUTCH_V2",

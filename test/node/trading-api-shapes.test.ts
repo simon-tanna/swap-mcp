@@ -12,10 +12,17 @@ import {
 } from "../../src/engine/tradingApiClient";
 import {
   FIXTURE_SWAPPER,
+  checkApprovalMalformed,
+  checkApprovalNonNull,
+  checkApprovalNull,
   quoteClassic,
+  quoteClassicMissingOutput,
+  quoteClassicNestedExtras,
+  quoteClassicNoQuote,
   quoteDutchV2,
   quoteUnwrap,
   quoteWrap,
+  swapMissingField,
   swapMissingKey,
   swapNested,
 } from "../fixtures/tradingApi";
@@ -315,5 +322,138 @@ describe("TradingApiClient shapes", () => {
     // ETH_TO_USDC input is the sentinel; USDC_TO_ETH output is the sentinel.
     expect(parseBody(calls[0].init).tokenIn).toBe(NATIVE_ETH_SENTINEL);
     expect(parseBody(calls[1].init).tokenOut).toBe(NATIVE_ETH_SENTINEL);
+  });
+
+  test("getQuote fails closed when a CLASSIC quote is missing quote.output.amount", async () => {
+    const { fetchImpl } = stubFetch([quoteClassicMissingOutput]);
+    const client = createTradingApiClient({
+      baseUrl: BASE_URL,
+      getApiKey: () => API_KEY,
+      fetchImpl,
+    });
+    await expect(
+      client.getQuote({
+        direction: "ETH_TO_USDC",
+        amount: "1000000000000000000",
+        swapper: FIXTURE_SWAPPER,
+        slippageTolerancePct: 0.5,
+      }),
+    ).rejects.toThrow(new AppError("upstream_unavailable"));
+  });
+
+  test("getQuote fails closed when a CLASSIC quote omits the quote key entirely", async () => {
+    const { fetchImpl } = stubFetch([quoteClassicNoQuote]);
+    const client = createTradingApiClient({
+      baseUrl: BASE_URL,
+      getApiKey: () => API_KEY,
+      fetchImpl,
+    });
+    await expect(
+      client.getQuote({
+        direction: "ETH_TO_USDC",
+        amount: "1000000000000000000",
+        swapper: FIXTURE_SWAPPER,
+        slippageTolerancePct: 0.5,
+      }),
+    ).rejects.toThrow(new AppError("upstream_unavailable"));
+  });
+
+  test("loose validation preserves extras at every re-forwarded level of the /swap body", async () => {
+    // One stub feeds both the /quote and the /swap call; the /quote result must
+    // round-trip through buildSwap with every upstream field intact — including
+    // the DEEPLY-nested quote.output extras, not just the top level.
+    const { fetchImpl, calls } = stubFetch([
+      quoteClassicNestedExtras,
+      swapNested,
+    ]);
+    const client = createTradingApiClient({
+      baseUrl: BASE_URL,
+      getApiKey: () => API_KEY,
+      fetchImpl,
+    });
+
+    const quote = await client.getQuote({
+      direction: "ETH_TO_USDC",
+      amount: "1000000000000000000",
+      swapper: FIXTURE_SWAPPER,
+      slippageTolerancePct: 0.5,
+    });
+    await client.buildSwap(quote);
+
+    const swapBody = parseBody(calls[1].init) as Record<string, unknown>;
+    // Top-level extras survive.
+    expect(swapBody.topLevelExtra).toBe("top-keep");
+    // Quote-level and DEEPLY-nested output-level extras survive (the strip trap).
+    expect(swapBody.quote).toEqual(quoteClassicNestedExtras.quote);
+    const nestedQuote = swapBody.quote as {
+      output: Record<string, unknown>;
+      syntheticQuoteExtra: unknown;
+    };
+    expect(nestedQuote.syntheticQuoteExtra).toBe("quote-level-keep");
+    expect(nestedQuote.output.token).toBe(USDC_ADDRESS);
+    expect(nestedQuote.output.syntheticOutputExtra).toBe("nested-keep");
+  });
+
+  test("buildSwap fails closed when the /swap response is missing a swap field", async () => {
+    const { fetchImpl } = stubFetch([swapMissingField]);
+    const client = createTradingApiClient({
+      baseUrl: BASE_URL,
+      getApiKey: () => API_KEY,
+      fetchImpl,
+    });
+    await expect(
+      client.buildSwap(quoteClassic as unknown as ClassicQuoteResponse),
+    ).rejects.toThrow(new AppError("upstream_unavailable"));
+  });
+
+  test("checkApproval returns the approval object, null, and fails closed on malformed bodies", async () => {
+    const okObject = stubFetch([checkApprovalNonNull]);
+    const objectClient = createTradingApiClient({
+      baseUrl: BASE_URL,
+      getApiKey: () => API_KEY,
+      fetchImpl: okObject.fetchImpl,
+    });
+    expect(
+      await objectClient.checkApproval({
+        token: USDC_ADDRESS,
+        amount: "1000000",
+        walletAddress: FIXTURE_SWAPPER,
+      }),
+    ).toEqual({ approval: checkApprovalNonNull.approval });
+
+    const okNull = stubFetch([checkApprovalNull]);
+    const nullClient = createTradingApiClient({
+      baseUrl: BASE_URL,
+      getApiKey: () => API_KEY,
+      fetchImpl: okNull.fetchImpl,
+    });
+    expect(
+      await nullClient.checkApproval({
+        token: USDC_ADDRESS,
+        amount: "1000000",
+        walletAddress: FIXTURE_SWAPPER,
+      }),
+    ).toEqual({ approval: null });
+
+    // Missing key, string value, and array value all fail closed.
+    for (const malformed of [
+      checkApprovalMalformed.missingKey,
+      checkApprovalMalformed.stringValue,
+      checkApprovalMalformed.arrayValue,
+    ]) {
+      const { fetchImpl } = stubFetch([malformed]);
+      const client = createTradingApiClient({
+        baseUrl: BASE_URL,
+        getApiKey: () => API_KEY,
+        fetchImpl,
+      });
+      await expect(
+        client.checkApproval({
+          token: USDC_ADDRESS,
+          amount: "1000000",
+          walletAddress: FIXTURE_SWAPPER,
+        }),
+      ).rejects.toThrow(new AppError("upstream_unavailable"));
+    }
   });
 });

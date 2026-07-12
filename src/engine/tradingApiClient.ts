@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { AppError } from "../errors";
 import {
   MAINNET_CHAIN_ID,
@@ -34,21 +35,54 @@ export type QuoteInput = {
   slippageTolerancePct: number;
 };
 
+/**
+ * Single source of truth for CLASSIC-family routings. Feeds the `/quote` schema
+ * enum, the `CLASSIC_FAMILY` set, and (via `z.infer`) the `routing` literal type,
+ * so the accepted routings can never drift across those three uses.
+ */
+const CLASSIC_ROUTINGS = ["CLASSIC", "WRAP", "UNWRAP"] as const;
+
+/**
+ * `/quote` boundary schema. Loose at every re-forwarded level so `buildSwap`'s
+ * re-spread into `/swap` keeps all upstream fields (a `z.object` anywhere in this
+ * subtree would strip that level's extras and break the `/swap` contract). Only
+ * `routing` (gated to CLASSIC-family) and `quote.output.amount` are required; any
+ * other routing fails the enum and collapses to `upstream_unavailable`.
+ */
+const classicQuoteSchema = z.looseObject({
+  routing: z.enum(CLASSIC_ROUTINGS),
+  quote: z.looseObject({
+    output: z.looseObject({ amount: z.string() }),
+  }),
+  permitData: z.unknown().nullish(),
+  permitTransaction: z.unknown().nullish(),
+});
+
+/**
+ * `/swap` boundary schema. Default strip is fine — `buildSwap` builds a fresh
+ * `SwapTx` from exactly these five fields and re-forwards nothing else.
+ */
+const swapResponseSchema = z.object({
+  swap: z.object({
+    to: z.string(),
+    data: z.string(),
+    value: z.string(),
+    chainId: z.number(),
+    gasLimit: z.string(),
+  }),
+});
+
+/**
+ * `/check_approval` boundary schema. The `approval` value stays opaque, but the
+ * key is required and must be an object or `null` — a missing key or a
+ * non-object/non-null value fails closed rather than passing as "approved".
+ */
+const checkApprovalSchema = z.object({
+  approval: z.union([z.looseObject({}), z.null()]),
+});
+
 /** CLASSIC-family `/quote` response — the only routing this client accepts. */
-export type ClassicQuoteResponse = {
-  routing: "CLASSIC" | "WRAP" | "UNWRAP";
-  quote: {
-    input: { token: string; amount: string };
-    output: { token: string; amount: string };
-    slippage: number;
-    route: unknown[];
-    gasFee: string;
-    gasFeeUSD: string;
-    gasUseEstimate: string;
-  };
-  permitData?: Record<string, unknown> | null;
-  permitTransaction?: Record<string, unknown> | null;
-};
+export type ClassicQuoteResponse = z.infer<typeof classicQuoteSchema>;
 
 /** The ready-to-sign swap transaction unwrapped from the `/swap` `{ swap }` envelope. */
 export type SwapTx = {
@@ -71,7 +105,7 @@ export interface TradingApiClient {
 }
 
 /** Routing families whose response carries a `quote.output.amount`. */
-const CLASSIC_FAMILY = new Set(["CLASSIC", "WRAP", "UNWRAP"]);
+const CLASSIC_FAMILY = new Set<string>(CLASSIC_ROUTINGS);
 
 /** Assert a quote is CLASSIC-family; anything else (e.g. UniswapX) fails closed. */
 export function assertClassicFamilyRouting(q: {
@@ -211,7 +245,7 @@ export function createTradingApiClient(deps: {
 
   return {
     async checkApproval(i) {
-      return (await requestWithPolicy(
+      const raw = await requestWithPolicy(
         "/check_approval",
         {
           walletAddress: i.walletAddress,
@@ -220,12 +254,17 @@ export function createTradingApiClient(deps: {
           chainId: MAINNET_CHAIN_ID,
         },
         { retryable: true },
-      )) as { approval: unknown | null };
+      );
+      const parsed = checkApprovalSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new AppError("upstream_unavailable");
+      }
+      return { approval: parsed.data.approval };
     },
 
     async getQuote(i) {
       const { tokenIn, tokenOut } = tokensFor(i.direction);
-      const response = (await requestWithPolicy(
+      const raw = await requestWithPolicy(
         "/quote",
         {
           type: "EXACT_INPUT",
@@ -239,24 +278,28 @@ export function createTradingApiClient(deps: {
           routingPreference: "CLASSIC",
         },
         { retryable: true },
-      )) as { routing: string };
-      assertClassicFamilyRouting(response);
-      return response;
+      );
+      // The schema's routing enum enforces the CLASSIC-family gate (a non-CLASSIC
+      // routing fails the enum), so a separate assertClassicFamilyRouting call
+      // here would be redundant.
+      const parsed = classicQuoteSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new AppError("upstream_unavailable");
+      }
+      return parsed.data;
     },
 
     async buildSwap(q) {
       const { permitData, permitTransaction, ...cleanQuote } = q;
       // `/swap` is the money path: never retried — no double-submission risk.
-      const response = (await requestWithPolicy("/swap", cleanQuote, {
+      const raw = await requestWithPolicy("/swap", cleanQuote, {
         retryable: false,
-      })) as {
-        swap?: SwapTx | null;
-      };
-      const swap = response?.swap;
-      if (!swap || typeof swap !== "object") {
+      });
+      const parsed = swapResponseSchema.safeParse(raw);
+      if (!parsed.success) {
         throw new AppError("upstream_unavailable");
       }
-      const { to, data, value, chainId, gasLimit } = swap;
+      const { to, data, value, chainId, gasLimit } = parsed.data.swap;
       return { to, data, value, chainId, gasLimit };
     },
   };
