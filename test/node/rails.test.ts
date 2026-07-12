@@ -71,4 +71,39 @@ describe("rails", () => {
     expect(checkDrift(1n, undefined, 0.5)).toEqual({ abort: false });
     expect(checkDrift(999999n, undefined, 5)).toEqual({ abort: false });
   });
+
+  test("drift check — boundary and zero-expected edges", () => {
+    // floor = 1000 − 1000×50/10000 = 995; fresh === floor is NOT abort (strict <).
+    expect(checkDrift(995n, 1000n, 0.5)).toEqual({ abort: false });
+    // expected 0 → floor 0; 0 < 0 is false, so no abort.
+    expect(checkDrift(0n, 0n, 0.5)).toEqual({ abort: false });
+  });
+
+  test("non-finite slippage is rejected at the validation boundary", () => {
+    expect(() =>
+      resolveSwapParams({
+        direction: "ETH_TO_USDC",
+        amountIn: "1000000",
+        slippageTolerancePct: NaN,
+      }),
+    ).toThrow(new AppError("invalid_input"));
+
+    expect(() =>
+      resolveSwapParams({
+        direction: "ETH_TO_USDC",
+        amountIn: "1000000",
+        slippageTolerancePct: Infinity,
+      }),
+    ).toThrow(new AppError("invalid_input"));
+  });
+
+  test("non-finite deadline is rejected at the validation boundary", () => {
+    expect(() =>
+      resolveSwapParams({
+        direction: "ETH_TO_USDC",
+        amountIn: "1000000",
+        deadlineSeconds: NaN,
+      }),
+    ).toThrow(new AppError("invalid_input"));
+  });
 });

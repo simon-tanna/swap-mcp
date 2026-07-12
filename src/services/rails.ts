@@ -22,16 +22,22 @@ export type ResolvedSwapParams = {
 /** Apply defaults (slippage 0.5, deadline 1200) and validate; throws AppError("invalid_input") on any violation. */
 export function resolveSwapParams(input: ExecuteSwapInput): ResolvedSwapParams {
   const slippageTolerancePct = input.slippageTolerancePct ?? 0.5;
-  if (slippageTolerancePct <= 0 || slippageTolerancePct > 5) {
+  if (
+    !Number.isFinite(slippageTolerancePct) ||
+    slippageTolerancePct <= 0 ||
+    slippageTolerancePct > 5
+  ) {
     throw new AppError("invalid_input");
   }
 
   const deadlineSeconds = input.deadlineSeconds ?? 1200;
-  if (deadlineSeconds <= 0) {
+  if (!Number.isFinite(deadlineSeconds) || deadlineSeconds <= 0) {
     throw new AppError("invalid_input");
   }
 
   // Validate regex FIRST so BigInt() can never throw on a malformed string.
+  // Leading zeros (e.g. "007") are deliberately accepted and echoed back verbatim;
+  // the canonical numeric value is derived via BigInt downstream, which is idempotent.
   if (!/^\d+$/.test(input.amountIn) || BigInt(input.amountIn) <= 0n) {
     throw new AppError("invalid_input");
   }
