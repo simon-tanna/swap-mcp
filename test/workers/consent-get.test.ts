@@ -120,4 +120,23 @@ describe("publicApp GET /authorize", () => {
     const html = await res.text();
     expect(html).not.toContain('name="csrf_token"');
   });
+
+  test("malformed authorize request is rejected with a clean 400", async () => {
+    // The real provider throws OAuthError on malformed requests; the handler
+    // must never reflect the thrown error's message/stack into the response.
+    const provider = {
+      async parseAuthRequest() {
+        throw new Error("SECRET_STACK_DETAIL_xyz");
+      },
+      async lookupClient() {
+        return null;
+      },
+    };
+    const res = await publicApp.request("/authorize", {}, testEnv(provider));
+
+    expect(res.status).toBe(400);
+    const body = await res.text();
+    expect(body).not.toContain("SECRET_STACK_DETAIL_xyz");
+    expect(body).not.toContain('name="csrf_token"');
+  });
 });

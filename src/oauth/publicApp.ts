@@ -47,8 +47,18 @@ publicApp.get("/healthz", (c) => c.json({ status: "ok" }));
 // embed it as a hidden field. The client name and exact redirect_uri are shown
 // above the passphrase field as the operator's out-of-band phishing check.
 publicApp.get("/authorize", async (c) => {
-  const authRequest = await c.env.OAUTH_PROVIDER.parseAuthRequest(c.req.raw);
-  const client = await c.env.OAUTH_PROVIDER.lookupClient(authRequest.clientId);
+  // The provider throws OAuthError on malformed authorize requests (bad
+  // client_id, redirect_uri, response_type, etc.). Since this endpoint is
+  // unauthenticated and attacker-reachable, catch and return a static 400 —
+  // never let the exception message/stack reach the response body.
+  let authRequest: AuthRequestLike;
+  let client: { redirectUris: string[]; clientName?: string } | null;
+  try {
+    authRequest = await c.env.OAUTH_PROVIDER.parseAuthRequest(c.req.raw);
+    client = await c.env.OAUTH_PROVIDER.lookupClient(authRequest.clientId);
+  } catch {
+    return c.text("Invalid authorization request.", 400);
+  }
 
   if (client === null) {
     return c.text("Invalid client.", 400);
