@@ -171,3 +171,9 @@
 - SECURITY BAR NOW IDENTICAL across surfaces: MCP guarded() and REST guardedRoute() both = assertAudience(props,canonicalMcpUri) → requireScope(props,scope) → work → errorEnvelope/errorResponse. T32 write-path rejection can assert at either seam.
 - PATTERN for later REST work: use guardedRoute(c,{scope,canonicalMcpUri},work) for any new /api route — never inline requireScope. errorResponse handles uniform HTTP mapping. propsAdapter (T25) mounts first in createApiApp.
 - Models: implementer + all reviews on sonnet. Local commit only.
+
+## T27 — publicApp + /healthz — DONE 2026-07-12
+- Commit c7d578f: src/oauth/publicApp.ts (bare `export const publicApp = new Hono()`, single GET /healthz → c.json({status:"ok"}), no Bindings generic, no env access, no branching) + test/workers/healthz.test.ts (2 tests). 158 tests / 27 files green, tsc+prettier clean.
+- NO-ENV-ORACLE property (spec §5.13/G1): healthz body is a byte-identical constant regardless of binding presence. Test compares raw res.text() of publicApp.request("/healthz") vs publicApp.request("/healthz",{},{}) (empty env) for exact equality + toStrictEqual({status:"ok"}). Both reviews APPROVED; code-quality reviewer empirically verified non-vacuity (making healthz branch on c.env → test goes red).
+- Both reviews on sonnet, first pass clean (no fix loop). Local commit only.
+- NOTE for T29/T30: publicApp is the OAuthProvider PUBLIC/unauthenticated handler; /authorize consent GET+POST routes get ADDED to THIS SAME app (publicApp) later. Keep it a bare Hono for now; a Bindings generic can be added when env-using routes arrive.

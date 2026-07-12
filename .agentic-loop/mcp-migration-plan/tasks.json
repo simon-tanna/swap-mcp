@@ -515,11 +515,11 @@
       "deps": [
         "T2"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "c7d578f19c77401ccd1ada39c35afcafca22c7bc",
       "task_start_sha": "126b7900caf88827b01efea14af183a6804727a6",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "c7d578f19c77401ccd1ada39c35afcafca22c7bc",
+      "quality_review_sha": "c7d578f19c77401ccd1ada39c35afcafca22c7bc",
       "blocker_count": 0
     },
     {
