@@ -105,11 +105,11 @@
       "deps": [
         "T1"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "6e8439ffc430448e260ed676f183ca8291497a15",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "6e8439ffc430448e260ed676f183ca8291497a15",
+      "quality_review_sha": "6e8439ffc430448e260ed676f183ca8291497a15",
       "blocker_count": 0
     },
     {
