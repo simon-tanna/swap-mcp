@@ -1,3 +1,5 @@
+import { scrubHex } from "./log";
+
 /** Closed allowlist of outward-facing error codes; no code outside this tuple is ever exposed. */
 export const ERROR_CODES = [
   "invalid_input",
@@ -43,9 +45,10 @@ export function toErrorEnvelope(
   code: ErrorCode,
   publicMessage: string,
 ): ErrorEnvelope {
+  const message = scrubHex(publicMessage);
   return {
-    content: [{ type: "text", text: publicMessage }],
-    structuredContent: { error: { code, message: publicMessage } },
+    content: [{ type: "text", text: message }],
+    structuredContent: { error: { code, message } },
     isError: true,
   };
 }
