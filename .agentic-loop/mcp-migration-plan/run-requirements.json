@@ -1,0 +1,24 @@
+{
+  "skills": [
+    "cloudflare:cloudflare",
+    "cloudflare:build-mcp",
+    "cloudflare:workers-best-practices",
+    "swap-integration",
+    "v4-sdk-integration",
+    "viem-integration",
+    "spec-to-pr:writing-documentation",
+    "superpowers:test-driven-development"
+  ],
+  "mcps": [
+    "context7",
+    "cloudflare-docs"
+  ],
+  "specialists": [
+    "general-purpose"
+  ],
+  "notes": {
+    "resolved_from": "prose requirements in the interactive task card (no --skill/--mcp/--subagent flags were passed)",
+    "commit_policy": "No Co-Authored-By: Claude or other AI-attribution trailers on any commit in this run.",
+    "interview_policy": "User explicitly requested an in-depth design interview — bias toward asking."
+  }
+}

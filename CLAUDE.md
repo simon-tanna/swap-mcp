@@ -4,32 +4,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Cloudflare Workers application built on the [Hono](https://hono.dev) framework, deployed via Wrangler. The project is named `swap-mcp` and is currently a **fresh scaffold** — `src/index.ts` contains only a single `GET /` route returning "Hello Hono!". There is no MCP server, no test suite, and no bindings wired up yet. Treat the name as intent, not implemented state.
+A Cloudflare Workers application (Hono + Wrangler) that exposes a crypto **swap** service over two authenticated surfaces:
+
+- **`/mcp`** — a Model Context Protocol server (`SwapMcpAgent`, built on the `agents` SDK) with tools: `getQuote`, `executeSwap`, `getTransaction`, `listTransactions`.
+- **`/api/*`** — a REST mirror of the same capabilities (`quote`, `swap`, `transactions`).
+
+Both surfaces are guarded by `@cloudflare/workers-oauth-provider`, share one operator token, and delegate execution to a `SwapCoordinator` Durable Object that signs and submits Ethereum transactions via `viem` against the Uniswap Trading API. State lives in **D1** (Drizzle ORM); rate limiting and swap coordination are **Durable Objects**.
 
 ## Commands
 
-This project uses **pnpm** (pinned via the `packageManager` field in `package.json`). Do not use npm or yarn — it would create a competing lockfile.
+Uses **pnpm** (pinned via `packageManager` in `package.json`). Do not use npm or yarn — it would create a competing lockfile.
 
 ```bash
 pnpm install
-pnpm dev         # Local dev server via `wrangler dev` (hot reload)
-pnpm deploy      # Deploy to Cloudflare with `wrangler deploy --minify`
-pnpm cf-typegen  # Regenerate the CloudflareBindings type from wrangler.jsonc
+pnpm dev          # Local dev server via `wrangler dev`
+pnpm test         # Run all vitest projects (node + workers + integration)
+pnpm typecheck    # tsc --noEmit
+pnpm lint         # prettier --check .
+pnpm format       # prettier --write .
+pnpm db:generate  # Generate a Drizzle migration into ./drizzle
+pnpm smoke        # Run scripts/smoke.ts
+pnpm cf-typegen   # Regenerate CloudflareBindings from wrangler.jsonc
+pnpm deploy       # Deploy with `wrangler deploy --minify`
 ```
 
-There is no lint, build, or test script configured.
+## Architecture
 
-## Architecture notes
+- **Entry point** `src/index.ts` exports a single `new OAuthProvider({...})`. It owns discovery (`/.well-known/*`), token issuance (`/token`), and open DCR (`/register`); routes `/mcp` and `/api` to bearer-guarded handlers; and sends everything else (consent UI + `/healthz`) to `oauth/publicApp`.
+- **`/mcp`** is served by `SwapMcpAgent.serve("/mcp", { binding: "SwapMcpAgent" })`, fronted by `transportGuard` (Origin allowlist + required `MCP-Protocol-Version` header) before the transport is reached.
+- **`/api/*`** builds a **fresh** `createApiApp(buildDefaultApiDeps(env))` on every request — deps (D1 handle, trading-API client, coordinator stub) derive from `env`, which only exists at call time, never at module scope.
+- **Durable Objects:** `SwapCoordinator` (`src/coordinator`, signs/submits swaps and owns the transaction lifecycle), `SwapMcpAgent` (`src/mcp`, MCP session state), and `RateLimiter` (`src/ratelimit`) — all SQLite-backed.
+- **Layers:** `src/services` (swapService, rails) → `src/engine` (tradingApiClient, viemSigner) and `src/repository` + `src/db/schema.ts` (Drizzle/D1). Errors are funneled through `src/errors.ts` into curated, non-leaking `{ error: { code, message } }` bodies.
 
-- **Entry point** is `src/index.ts`, which must `export default` the Hono `app` (Workers fetch handler). This path is set by `main` in `wrangler.jsonc`.
-- **Bindings** (KV, R2, D1, AI, vars, etc.) are declared in `wrangler.jsonc` — the file ships with commented-out examples for each. After adding a binding there, run `npm run cf-typegen` to regenerate the `CloudflareBindings` interface, then thread it through Hono as a generic so `c.env` is typed:
-  ```ts
-  const app = new Hono<{ Bindings: CloudflareBindings }>()
-  ```
-- **Node APIs** are unavailable by default. To use them, uncomment `nodejs_compat` in `compatibility_flags` in `wrangler.jsonc`.
-- **`compatibility_date`** in `wrangler.jsonc` pins Workers runtime behavior — bump it deliberately, not casually.
-- **JSX** is configured for Hono's JSX runtime (`jsxImportSource: "hono/jsx"` in tsconfig), so `.tsx` components render server-side through Hono, not React.
+## Testing
+
+`vitest.config.ts` defines three projects:
+
+- **node** (`test/node/**`) — plain Node environment, pure-logic units.
+- **workers** (`test/workers/**`) — `@cloudflare/vitest-pool-workers` (Miniflare) with real bindings; DOs, routes, MCP harness.
+- **integration** (`test/integration/**`) — same pool, OAuth end-to-end flows.
+
+The two pool projects apply D1 migrations via `test/setup/apply-migrations.ts` and inject fake secrets (well-known Anvil key, etc.) through Miniflare `bindings`.
+
+## Gotchas
+
+- **DO binding names are load-bearing.** `SwapMcpAgent`'s binding name must equal its class name (McpAgent resolves the DO by class name at request time) — do _not_ rename it to SCREAMING_SNAKE. `agents@0.17` `serve()` defaults `binding` to `"MCP_OBJECT"`, which we don't declare, so it must be passed explicitly.
+- **`CANONICAL_MCP_URI` is origin-only** (no `/mcp` path) so one operator token authorizes both `/mcp` and `/api/*`. A path-scoped audience would 401 every `/api/*` request.
 
 ## Conventions
 
-- ESM only (`"type": "module"`), `strict` TypeScript, `ESNext` target with bundler module resolution — write modern ES/TS without transpilation-era workarounds.
+- ESM only (`"type": "module"`), `strict` TypeScript, `ESNext` + bundler resolution. `nodejs_compat` is enabled.
+- After changing `wrangler.jsonc` bindings, run `pnpm cf-typegen` and thread `CloudflareBindings` through Hono as `new Hono<{ Bindings: CloudflareBindings }>()`.
+- `compatibility_date` pins runtime behavior — bump deliberately.
+- Secrets are declared by name under `secrets.required` in `wrangler.jsonc` and set via `wrangler secret put`; `validateEnv` fails closed if any are missing. Never read or log secret values.

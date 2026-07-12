@@ -1,0 +1,670 @@
+{
+  "issue": null,
+  "branch": "feat/mcp-migration-plan",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Dependencies, package scripts, node-pool vitest project",
+      "domain": "general-purpose",
+      "file_targets": [
+        "package.json",
+        "vitest.config.ts",
+        "test/node/canary.test.ts"
+      ],
+      "deps": [],
+      "status": "done",
+      "commit_sha": "b401e7bae2601a8192b5897d42e65e734ef58cd7",
+      "task_start_sha": null,
+      "spec_review_sha": "34d25ebca6d1a19e5043eed3b032c0a68bea1045",
+      "quality_review_sha": "b401e7bae2601a8192b5897d42e65e734ef58cd7",
+      "blocker_count": 0
+    },
+    {
+      "id": "T2",
+      "title": "wrangler.jsonc base bindings + workers-pool vitest project",
+      "domain": "general-purpose",
+      "file_targets": [
+        "wrangler.jsonc",
+        "vitest.config.ts",
+        "test/workers/canary.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
+      "status": "done",
+      "commit_sha": "b02b324939ada0d5e596d66b640328639d4f4d3f",
+      "task_start_sha": null,
+      "spec_review_sha": "b02b324939ada0d5e596d66b640328639d4f4d3f",
+      "quality_review_sha": "b02b324939ada0d5e596d66b640328639d4f4d3f",
+      "blocker_count": 0
+    },
+    {
+      "id": "T3",
+      "title": "Errors \u2014 closed ErrorCode allowlist, classify, envelope",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/errors.ts",
+        "test/node/errors.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
+      "status": "done",
+      "commit_sha": "b7a0092fa60367d10bbc5bfab1c9c105ea56bcc1",
+      "task_start_sha": null,
+      "spec_review_sha": "b7a0092fa60367d10bbc5bfab1c9c105ea56bcc1",
+      "quality_review_sha": "b7a0092fa60367d10bbc5bfab1c9c105ea56bcc1",
+      "blocker_count": 0
+    },
+    {
+      "id": "T4",
+      "title": "Logger redaction + enforced envelope redaction",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/log.ts",
+        "src/errors.ts",
+        "test/node/log.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
+      "status": "done",
+      "commit_sha": "8c53cba098528c15754ad436d90650acdac22e65",
+      "task_start_sha": null,
+      "spec_review_sha": "020dcab96dac248ed85c4730fc32c1f7f64bcb58",
+      "quality_review_sha": "8c53cba098528c15754ad436d90650acdac22e65",
+      "blocker_count": 0
+    },
+    {
+      "id": "T5",
+      "title": "Env validation \u2014 fail-closed, host allowlist, secret accessors",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/env.ts",
+        "test/node/env.test.ts"
+      ],
+      "deps": [
+        "T2",
+        "T3"
+      ],
+      "status": "done",
+      "commit_sha": "81fdb14e8e89deac083e4914993e0c34248ea4bf",
+      "task_start_sha": null,
+      "spec_review_sha": "1ce09f84b1efa84e43bae101334eeb19823cf64b",
+      "quality_review_sha": "81fdb14e8e89deac083e4914993e0c34248ea4bf",
+      "blocker_count": 0
+    },
+    {
+      "id": "T6",
+      "title": "Constant-time passphrase compare (M10)",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/auth/constantTime.ts",
+        "test/workers/constant-time.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
+      "status": "done",
+      "commit_sha": "6e8439ffc430448e260ed676f183ca8291497a15",
+      "task_start_sha": null,
+      "spec_review_sha": "6e8439ffc430448e260ed676f183ca8291497a15",
+      "quality_review_sha": "6e8439ffc430448e260ed676f183ca8291497a15",
+      "blocker_count": 0
+    },
+    {
+      "id": "T7",
+      "title": "Auth guards \u2014 transport, audience, scope",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/auth/guards.ts",
+        "test/node/guards.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
+      "status": "done",
+      "commit_sha": "5775b92",
+      "task_start_sha": null,
+      "spec_review_sha": "8926080",
+      "quality_review_sha": "5775b92",
+      "blocker_count": 0
+    },
+    {
+      "id": "T8",
+      "title": "D1 schema, drizzle-kit migrations, test-migration wiring",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/db/schema.ts",
+        "drizzle.config.ts",
+        "drizzle/",
+        "test/setup/apply-migrations.ts",
+        "vitest.config.ts",
+        "test/workers/schema.test.ts"
+      ],
+      "deps": [
+        "T2"
+      ],
+      "status": "done",
+      "commit_sha": "bb9ffe6",
+      "task_start_sha": null,
+      "spec_review_sha": "7b5585d",
+      "quality_review_sha": "bb9ffe6",
+      "blocker_count": 0
+    },
+    {
+      "id": "T9",
+      "title": "Mainnet address constants + native sentinel",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/engine/constants.ts",
+        "test/node/constants.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
+      "status": "done",
+      "commit_sha": "8ec4ded",
+      "task_start_sha": null,
+      "spec_review_sha": "8ec4ded",
+      "quality_review_sha": "8ec4ded",
+      "blocker_count": 0
+    },
+    {
+      "id": "T10",
+      "title": "Opaque cursor codec with tamper rejection",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/repository/cursor.ts",
+        "test/node/cursor.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
+      "status": "done",
+      "commit_sha": "c199726",
+      "task_start_sha": null,
+      "spec_review_sha": "c199726",
+      "quality_review_sha": "c199726",
+      "blocker_count": 0
+    },
+    {
+      "id": "T11",
+      "title": "Transactions repository with cursor pagination",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/repository/transactions.ts",
+        "test/workers/repository.test.ts"
+      ],
+      "deps": [
+        "T8",
+        "T10"
+      ],
+      "status": "done",
+      "commit_sha": "899682a",
+      "task_start_sha": null,
+      "spec_review_sha": "2518d8a",
+      "quality_review_sha": "899682a",
+      "blocker_count": 0
+    },
+    {
+      "id": "T12",
+      "title": "Pure safety rails, drift math, slippage units",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/services/rails.ts",
+        "test/node/rails.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
+      "status": "done",
+      "commit_sha": "4608a2d",
+      "task_start_sha": null,
+      "spec_review_sha": "7826cd7",
+      "quality_review_sha": "4608a2d",
+      "blocker_count": 0
+    },
+    {
+      "id": "T13",
+      "title": "TradingApiClient \u2014 request/response shapes + routing assertion",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/engine/tradingApiClient.ts",
+        "test/fixtures/tradingApi.ts",
+        "test/node/trading-api-shapes.test.ts"
+      ],
+      "deps": [
+        "T3",
+        "T9"
+      ],
+      "status": "done",
+      "commit_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
+      "task_start_sha": "043413fb87d5a5bce09e8ce74953817bdadb5857",
+      "spec_review_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
+      "quality_review_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
+      "blocker_count": 0,
+      "refinement_sha": "ebc17fb17930be59e92ae5ea59b0add1f5f6a7ae",
+      "refinement_note": "Zod boundary-validation of trading api responses (replaced `as` casts); validating-specs REVISE->resolved; both reviews clean."
+    },
+    {
+      "id": "T14",
+      "title": "TradingApiClient \u2014 8s timeout + jittered retry policy",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/engine/tradingApiClient.ts",
+        "test/node/trading-api-retry.test.ts"
+      ],
+      "deps": [
+        "T13"
+      ],
+      "status": "done",
+      "commit_sha": "d2c3a5ad2e5b35e2adbd34144f3f9c95c5913a26",
+      "task_start_sha": "5c423c3",
+      "spec_review_sha": "d2c3a5ad2e5b35e2adbd34144f3f9c95c5913a26",
+      "quality_review_sha": "d2c3a5ad2e5b35e2adbd34144f3f9c95c5913a26",
+      "blocker_count": 0
+    },
+    {
+      "id": "T15",
+      "title": "ViemSigner \u2014 direction-aware balances, submit, receipt disambiguation",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/engine/viemSigner.ts",
+        "test/fixtures/receipts.ts",
+        "test/node/viem-signer.test.ts"
+      ],
+      "deps": [
+        "T3",
+        "T9"
+      ],
+      "status": "done",
+      "commit_sha": "62eb2ae",
+      "task_start_sha": "8a7dac1",
+      "spec_review_sha": "62eb2ae",
+      "quality_review_sha": "62eb2ae",
+      "blocker_count": 0
+    },
+    {
+      "id": "T16",
+      "title": "swapService.getQuote",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/services/swapService.ts",
+        "test/node/swap-service-quote.test.ts"
+      ],
+      "deps": [
+        "T11",
+        "T13",
+        "T15"
+      ],
+      "status": "done",
+      "commit_sha": "594e637",
+      "task_start_sha": "e279789",
+      "spec_review_sha": "594e637",
+      "quality_review_sha": "594e637",
+      "blocker_count": 0
+    },
+    {
+      "id": "T17",
+      "title": "swapService.executeSwap orchestration + gas-headroom balance rail",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/services/swapService.ts",
+        "test/node/swap-service-execute.test.ts"
+      ],
+      "deps": [
+        "T12",
+        "T14",
+        "T16"
+      ],
+      "status": "done",
+      "commit_sha": "0b370fd",
+      "task_start_sha": "f395cbc",
+      "spec_review_sha": "0b370fd",
+      "quality_review_sha": "0b370fd",
+      "blocker_count": 0
+    },
+    {
+      "id": "T18",
+      "title": "SwapCoordinator DO \u2014 class, binding, happy-path lifecycle",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/coordinator/SwapCoordinator.ts",
+        "wrangler.jsonc",
+        "src/index.ts",
+        "test/workers/coordinator-lifecycle.test.ts"
+      ],
+      "deps": [
+        "T17"
+      ],
+      "status": "done",
+      "commit_sha": "e547492",
+      "task_start_sha": "6550375",
+      "spec_review_sha": "e547492",
+      "quality_review_sha": "e547492",
+      "blocker_count": 0
+    },
+    {
+      "id": "T19",
+      "title": "Coordinator abort paths \u2014 drift, approval, rails disposition",
+      "domain": "general-purpose",
+      "file_targets": [
+        "test/workers/coordinator-aborts.test.ts"
+      ],
+      "deps": [
+        "T18"
+      ],
+      "status": "done",
+      "commit_sha": "9b2a0f60f2f6e63a34a8d95f8ba596e6820f0639",
+      "task_start_sha": "c6c2fec4eab61aa289b2fa70b72300a016b4acef",
+      "spec_review_sha": "9b2a0f60f2f6e63a34a8d95f8ba596e6820f0639",
+      "quality_review_sha": "9b2a0f60f2f6e63a34a8d95f8ba596e6820f0639",
+      "blocker_count": 0
+    },
+    {
+      "id": "T20",
+      "title": "Receipt-wait timeout vs revert disambiguation (M3)",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/services/swapService.ts",
+        "src/coordinator/SwapCoordinator.ts",
+        "test/workers/coordinator-receipt.test.ts"
+      ],
+      "deps": [
+        "T18"
+      ],
+      "status": "done",
+      "commit_sha": "78c591a842ed73f5b5432ab235c7ddcf294a0fd2",
+      "task_start_sha": "be1386684f72ebc7305a6800142133b651fceaf1",
+      "spec_review_sha": "78c591a842ed73f5b5432ab235c7ddcf294a0fd2",
+      "quality_review_sha": "8d99a7a5494dc1989f4d6e254b8b0d16a1b9b566",
+      "blocker_count": 0
+    },
+    {
+      "id": "T21",
+      "title": "G7 concurrency mutex + G9 mid-swap interleaving",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/coordinator/SwapCoordinator.ts",
+        "test/workers/coordinator-concurrency.test.ts"
+      ],
+      "deps": [
+        "T18",
+        "T20"
+      ],
+      "status": "done",
+      "commit_sha": "e184bd5082767717b66618d694dc165699e3e589",
+      "task_start_sha": "7c8f281b242730d4434570d76551204712fde518",
+      "spec_review_sha": "e184bd5082767717b66618d694dc165699e3e589",
+      "quality_review_sha": "1633b067111be2f0eb57e18669e8e37f8ce5f495",
+      "blocker_count": 0
+    },
+    {
+      "id": "T22",
+      "title": "MCP read-tool registrars \u2014 get_quote, get_transaction, list_transactions",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/mcp/tools/getQuote.ts",
+        "src/mcp/tools/getTransaction.ts",
+        "src/mcp/tools/listTransactions.ts",
+        "src/mcp/tools/deps.ts",
+        "test/workers/mcp-read-tools.test.ts"
+      ],
+      "deps": [
+        "T7",
+        "T16",
+        "T18"
+      ],
+      "status": "done",
+      "commit_sha": "9a93d2a9d0ad9ab8ae207195a0e59a92164aa335",
+      "task_start_sha": "6c26e571f752f67e459225c68dddc63c67d2ab24",
+      "spec_review_sha": "9f2df7f73ae491a4710c15a09266b70b78b06539",
+      "quality_review_sha": "9a93d2a9d0ad9ab8ae207195a0e59a92164aa335",
+      "blocker_count": 0
+    },
+    {
+      "id": "T23",
+      "title": "MCP execute_swap registrar",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/mcp/tools/executeSwap.ts",
+        "test/workers/mcp-execute-tool.test.ts"
+      ],
+      "deps": [
+        "T22"
+      ],
+      "status": "done",
+      "commit_sha": "8d5ac183b4331a7979b320e68726cf2597777bed",
+      "task_start_sha": "fc4f6957c8a5dc11b1cb6dc0bc386b526b5d89e5",
+      "spec_review_sha": "8d5ac183b4331a7979b320e68726cf2597777bed",
+      "quality_review_sha": "8d5ac183b4331a7979b320e68726cf2597777bed",
+      "blocker_count": 0
+    },
+    {
+      "id": "T24",
+      "title": "SwapMcpAgent class + DO binding",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/mcp/SwapMcpAgent.ts",
+        "wrangler.jsonc",
+        "src/index.ts",
+        "test/workers/mcp-agent.test.ts"
+      ],
+      "deps": [
+        "T22",
+        "T23"
+      ],
+      "status": "done",
+      "commit_sha": "3870cd26ca6a686f18de0b8d9752b686b70aaf90",
+      "task_start_sha": "689b14ad44ed4802fa2f2d5d7e3ac437a3791c70",
+      "spec_review_sha": "3870cd26ca6a686f18de0b8d9752b686b70aaf90",
+      "quality_review_sha": "3870cd26ca6a686f18de0b8d9752b686b70aaf90",
+      "blocker_count": 0
+    },
+    {
+      "id": "T25",
+      "title": "REST props-adapter middleware + error\u2192HTTP mapping",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/api/middleware/props.ts",
+        "test/workers/api-middleware.test.ts"
+      ],
+      "deps": [
+        "T3",
+        "T7"
+      ],
+      "status": "done",
+      "commit_sha": "41c95c7271993613553a871b84bfc7ff4de56574",
+      "task_start_sha": "4ca6be1b0a72a4cd34397c28bc868e03e9b7e06a",
+      "spec_review_sha": "41c95c7271993613553a871b84bfc7ff4de56574",
+      "quality_review_sha": "41c95c7271993613553a871b84bfc7ff4de56574",
+      "blocker_count": 0
+    },
+    {
+      "id": "T26",
+      "title": "REST mirror routes (4)",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/api/apiApp.ts",
+        "src/api/routes/quote.ts",
+        "src/api/routes/swap.ts",
+        "src/api/routes/transactions.ts",
+        "test/workers/api-routes.test.ts"
+      ],
+      "deps": [
+        "T16",
+        "T18",
+        "T25"
+      ],
+      "status": "done",
+      "commit_sha": "d87a33cfd4d3494fedd3fe14c382980eb754ebf3",
+      "task_start_sha": "922efba4eb8acb99519e2e2abee85d1330047bb3",
+      "spec_review_sha": "d87a33cfd4d3494fedd3fe14c382980eb754ebf3",
+      "quality_review_sha": "d87a33cfd4d3494fedd3fe14c382980eb754ebf3",
+      "blocker_count": 0
+    },
+    {
+      "id": "T27",
+      "title": "publicApp + /healthz",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/oauth/publicApp.ts",
+        "test/workers/healthz.test.ts"
+      ],
+      "deps": [
+        "T2"
+      ],
+      "status": "done",
+      "commit_sha": "c7d578f19c77401ccd1ada39c35afcafca22c7bc",
+      "task_start_sha": "126b7900caf88827b01efea14af183a6804727a6",
+      "spec_review_sha": "c7d578f19c77401ccd1ada39c35afcafca22c7bc",
+      "quality_review_sha": "c7d578f19c77401ccd1ada39c35afcafca22c7bc",
+      "blocker_count": 0
+    },
+    {
+      "id": "T28",
+      "title": "RateLimiter Durable Object",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/ratelimit/RateLimiter.ts",
+        "wrangler.jsonc",
+        "src/index.ts",
+        "test/workers/rate-limiter.test.ts"
+      ],
+      "deps": [
+        "T2"
+      ],
+      "status": "done",
+      "commit_sha": "03441ea",
+      "task_start_sha": null,
+      "spec_review_sha": "03441ea",
+      "quality_review_sha": "03441ea",
+      "blocker_count": 0
+    },
+    {
+      "id": "T29",
+      "title": "CSRF codec + consent GET (display, redirect + resource validation)",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/oauth/csrf.ts",
+        "src/oauth/publicApp.ts",
+        "test/workers/consent-get.test.ts"
+      ],
+      "deps": [
+        "T5",
+        "T27"
+      ],
+      "status": "done",
+      "commit_sha": "121564f",
+      "task_start_sha": null,
+      "spec_review_sha": "41fe3d2",
+      "quality_review_sha": "121564f",
+      "blocker_count": 0
+    },
+    {
+      "id": "T30",
+      "title": "Consent POST \u2014 ordered gate chain + completeAuthorization",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/oauth/publicApp.ts",
+        "test/workers/consent-post.test.ts"
+      ],
+      "deps": [
+        "T6",
+        "T28",
+        "T29"
+      ],
+      "status": "done",
+      "commit_sha": "4d797ee",
+      "task_start_sha": null,
+      "spec_review_sha": "4d797ee",
+      "quality_review_sha": "4d797ee",
+      "blocker_count": 0
+    },
+    {
+      "id": "T31",
+      "title": "OAuthProvider wiring + integration happy path",
+      "domain": "general-purpose",
+      "file_targets": [
+        "src/index.ts",
+        "vitest.config.ts",
+        "test/helpers/mintToken.ts",
+        "test/integration/oauth-happy.test.ts"
+      ],
+      "deps": [
+        "T24",
+        "T26",
+        "T30"
+      ],
+      "status": "done",
+      "commit_sha": "dfc14ad",
+      "task_start_sha": null,
+      "spec_review_sha": "dfc14ad",
+      "quality_review_sha": "dfc14ad",
+      "blocker_count": 0
+    },
+    {
+      "id": "T32",
+      "title": "Integration negative paths",
+      "domain": "general-purpose",
+      "file_targets": [
+        "test/integration/oauth-negative.test.ts",
+        "test/workers/scope-seam.test.ts"
+      ],
+      "deps": [
+        "T31"
+      ],
+      "status": "done",
+      "commit_sha": "9329a91bf4bddc657656aac5349bfba10795629d",
+      "task_start_sha": "8904bb2e46c2c50e7bd590a39766ed25a1461585",
+      "spec_review_sha": "9329a91bf4bddc657656aac5349bfba10795629d",
+      "quality_review_sha": "9329a91bf4bddc657656aac5349bfba10795629d",
+      "blocker_count": 0
+    },
+    {
+      "id": "T33",
+      "title": "Documentation (Di\u00e1taxis)",
+      "domain": "general-purpose",
+      "file_targets": [
+        "docs/tutorials/getting-started.md",
+        "docs/how-to/configure-secrets-and-deploy.md",
+        "docs/how-to/one-time-usdc-approval.md",
+        "docs/how-to/reconcile-stranded-submitted.md",
+        "docs/reference/api-and-data-model.md",
+        "docs/explanation/architecture-decisions.md",
+        "test/node/docs-presence.test.ts"
+      ],
+      "deps": [
+        "T32"
+      ],
+      "status": "done",
+      "commit_sha": "f8e9fdf1969d5f292f2c22e4c7ba61f7fefaf36a",
+      "task_start_sha": "3f9be65",
+      "spec_review_sha": "f8e9fdf1969d5f292f2c22e4c7ba61f7fefaf36a",
+      "quality_review_sha": "f8e9fdf1969d5f292f2c22e4c7ba61f7fefaf36a",
+      "blocker_count": 0
+    },
+    {
+      "id": "T34",
+      "title": "Manual smoke script",
+      "domain": "general-purpose",
+      "file_targets": [
+        "scripts/smoke.ts",
+        "docs/how-to/configure-secrets-and-deploy.md",
+        "test/node/smoke-presence.test.ts"
+      ],
+      "deps": [
+        "T33"
+      ],
+      "status": "done",
+      "commit_sha": "4d40629063bdf0cf0f0793403796d730da4ae604",
+      "task_start_sha": "d366a99",
+      "spec_review_sha": "406a04aea306ce8c20b21c83a46cd130f3250be5",
+      "quality_review_sha": "406a04aea306ce8c20b21c83a46cd130f3250be5",
+      "blocker_count": 0,
+      "refinement_sha": "406a04aea306ce8c20b21c83a46cd130f3250be5",
+      "refinement_note": "T34 review fix: dropped dead client-side UNISWAP_API_KEY (worker holds it server-side) + pinned the approval log to the broadcast maxAllowance constant. Spec-compliance re-review cleared the important finding; quality/safety re-confirmed no regression (key never logged, approval still double-gated). Atomic TDD commit is 4d40629 (carries test/node/smoke-presence.test.ts + TDD: line)."
+    }
+  ]
+}
