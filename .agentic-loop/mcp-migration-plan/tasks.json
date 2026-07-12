@@ -393,11 +393,11 @@
         "T18",
         "T20"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "e184bd5082767717b66618d694dc165699e3e589",
       "task_start_sha": "7c8f281b242730d4434570d76551204712fde518",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "e184bd5082767717b66618d694dc165699e3e589",
+      "quality_review_sha": "1633b067111be2f0eb57e18669e8e37f8ce5f495",
       "blocker_count": 0
     },
     {
