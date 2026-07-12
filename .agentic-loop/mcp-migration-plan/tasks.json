@@ -256,9 +256,9 @@
       "deps": [
         "T13"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "5c423c3",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
