@@ -278,9 +278,9 @@
         "T3",
         "T9"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "8a7dac1",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
