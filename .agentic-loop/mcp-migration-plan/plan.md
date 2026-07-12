@@ -21,7 +21,7 @@
 
 Three points where the spec permitted implementer latitude; the plan records the chosen resolution so tasks are unambiguous:
 
-1. **Scope grant = requested ∩ `["swap:read","swap:write"]`, defaulting to both.** The consent POST (T30) grants the intersection of the client-requested scopes with the two supported scopes, defaulting to both when the client requests both or none. Both scopes are co-granted today (no runtime privilege boundary in this POC, spec §5.5), but the intersection preserves the ability to mint a read-only token with no code change — and lets T32 mint a `swap:read`-only token to prove write paths reject it.
+1. **Scope grant = unconditionally both `["swap:read","swap:write"]` (interview decision 26, round 7).** The consent POST (T30) hardcodes the grant exactly as spec §5.6 states — `completeAuthorization` is always called with both scopes regardless of what the client requested. An earlier draft's requested-∩-both intersection was rejected at plan review as an unauthorised access-control change. T32's read-only-token negative tests mint their `swap:read`-only token via a **test-only direct props-injection helper** (never a production code path), so the write-path rejection coverage is preserved.
 2. **Cursor integrity = strict schema validation (not HMAC).** Spec §5.7 permits "HMAC-signed **or** strictly schema-validated". The cursor codec (T10) base64url-encodes canonical JSON and strictly Zod-validates `{ createdAt: positive int, id: uuid }` on decode; any tamper producing an out-of-schema payload is rejected `invalid_input`. A structurally-valid-but-different cursor merely addresses a different page and leaks nothing — no server signing secret is introduced.
 3. **Incremental DO bindings in `wrangler.jsonc`.** The three DO classes are wired into `wrangler.jsonc` (`durable_objects.bindings` + `migrations.new_sqlite_classes`) incrementally as each class first comes into existence — `SwapCoordinator` (T18), `SwapMcpAgent` (T24), `RateLimiter` (T28) — because the pool fails to boot if the config names a class the Worker does not yet export. The final config state matches spec §5.1 exactly.
 
@@ -929,7 +929,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Files:**
 
 - Create: `src/mcp/SwapMcpAgent.ts`
-- Modify: `wrangler.jsonc` (add DO binding `{ name: "SwapMcpAgent", class_name: "SwapMcpAgent" }` — the `agents` McpAgent convention binds by class name for `.serve()`; extend the migrations tag with `new_sqlite_classes: ["SwapMcpAgent"]`), `src/index.ts` (export class), run `pnpm cf-typegen`
+- Modify: `wrangler.jsonc` (add DO binding `{ name: "SwapMcpAgent", class_name: "SwapMcpAgent" }` — the `agents` McpAgent convention binds by class name for `.serve()`; this deliberately differs from the SCREAMING_SNAKE names of `SWAP_COORDINATOR`/`RATE_LIMITER` and must NOT be "fixed" for consistency, or `.serve()` cannot find its DO; extend the migrations tag with `new_sqlite_classes: ["SwapMcpAgent"]`), `src/index.ts` (export class), run `pnpm cf-typegen`
 - Test: `test/workers/mcp-agent.test.ts`
 
 **Test contract:**
@@ -1161,7 +1161,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 **Expected first-run failure:** 404 on POST `/authorize`.
 
-**Implementation surface:** `publicApp.post("/authorize", ...)` implementing the strict order: Origin/Referer allowlist → CSRF verify+consume → resource validation → `env.RATE_LIMITER` `checkAndConsume(CF-Connecting-IP)` → `timingSafeEqualDigest(submitted, getAuthPassphrase())` → on match `completeAuthorization` + `recordSuccess`, redirect; on mismatch re-render. Grants requested scopes ∩ `["swap:read","swap:write"]`, defaulting to both when the client requests both/none (Resolved planning choice 1; both scopes co-granted at consent per §5.6; the intersection preserves §5.5's future read-only token with no code change).
+**Implementation surface:** `publicApp.post("/authorize", ...)` implementing the strict order: Origin/Referer allowlist → CSRF verify+consume → resource validation → `env.RATE_LIMITER` `checkAndConsume(CF-Connecting-IP)` → `timingSafeEqualDigest(submitted, getAuthPassphrase())` → on match `completeAuthorization` + `recordSuccess`, redirect; on mismatch re-render. Grants scopes `["swap:read","swap:write"]` unconditionally — hardcoded, never derived from the client's requested scopes (Resolved planning choice 1, interview decision 26; spec §5.6 literal).
 
 **Expected pass criteria:** all six green; gate green.
 
@@ -1199,7 +1199,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Implementation surface:**
 
 - `src/index.ts`: `export default new OAuthProvider({ apiHandlers: { "/mcp": SwapMcpAgent.serve("/mcp"), "/api": apiApp }, defaultHandler: publicApp, authorizeEndpoint: "/authorize", tokenEndpoint: "/token", clientRegistrationEndpoint: "/register", scopesSupported: ["swap:read","swap:write"] })` — `serve("/mcp")` with **no** `{ binding }` argument (spec M8; verified against `node_modules/agents/dist/mcp.d.ts` in T1 Step 3); token storage via the `env.OAUTH_KV` convention (no `kv` option exists in 0.8.1). `export { SwapMcpAgent, SwapCoordinator, RateLimiter }`. `apiApp` here is a thin Hono app calling `createApiApp(buildDefaultApiDeps(env))` per request; the MCP transport guard (`transportGuard`) runs in `SwapMcpAgent`'s fetch path before tool dispatch; `assertAudience` runs on props before every tool handler (already wired via registrars' deps).
-- `test/helpers/mintToken.ts`: `export async function mintToken(opts?: { scope?: string }): Promise<{ accessToken: string; clientId: string }>`
+- `test/helpers/mintToken.ts`: `export async function mintToken(): Promise<{ accessToken: string; clientId: string }>` — production-flow helper; always yields a both-scopes token (decision 26 — the consent flow cannot mint anything narrower)
 
 **Expected pass criteria:** integration project green; all prior projects green; gate green.
 
@@ -1218,6 +1218,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Files:**
 
 - Test: `test/integration/oauth-negative.test.ts` (fixes land in existing modules if red beyond expectation)
+- Create: `test/helpers/mintTestToken.ts` — test-only props-injection minting (`mintTestToken({ scopes })` writes token props directly through the OAuthProvider test seam/KV; exists ONLY because the production consent flow always grants both scopes per decision 26)
 
 **Test contract:**
 
@@ -1227,7 +1228,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
   - replaying/omitting the CSRF token on the real `POST /authorize` → rejection; a subsequent GET+valid dance still works (covers §7 G2 CSRF integration path)
   - authorize request with `resource=https://attacker.example/mcp` → rejected; no token mintable (covers §7 G2 foreign-resource)
   - five wrong-passphrase POSTs from `CF-Connecting-IP: 9.9.9.9` then a sixth → HTTP 429 `rate_limited` (covers §7 G2 429-after-limit via the real `RateLimiter`)
-  - `mintToken({ scope: "swap:read" })` (client requests only the read scope; consent grants the intersection) → the token succeeds on `GET /api/transactions` but `POST /api/swap` → 403 and the MCP `execute_swap` tool call returns the `forbidden` envelope (covers §7 G2/G4 read-only-token rejected by every write path)
+  - a `swap:read`-only token minted via the **test-only props-injection helper** (`mintTestToken({ scopes: ["swap:read"] })` in `test/helpers/` — writes token props directly through the OAuthProvider test seam/KV, never via the production consent flow, which always grants both scopes per decision 26) → the token succeeds on `GET /api/transactions` but `POST /api/swap` → 403 and the MCP `execute_swap` tool call returns the `forbidden` envelope (covers §7 G2/G4 read-only-token rejected by every write path)
   - decoding what the surfaces echo of identity (e.g. a transactions row's `userId`, MCP tool behavior) never exposes the passphrase or any secret; a forced `internal` error response body contains no long hex and no secret-name values (covers §7 G2 no-secret props + §7 G10 integration leak test)
 
 **Expected first-run failure:** these exercise already-built behavior — apply the deliberate-inversion red check (invert one assertion, watch it fail, restore) per T19's note; any genuine red is a defect fixed in the named modules.

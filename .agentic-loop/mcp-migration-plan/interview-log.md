@@ -43,3 +43,6 @@ All rounds run interactively via AskUserQuestion. Answers are literal authorisat
 21. **Drift design**: Caller-supplied floor — execute_swap gains optional expectedAmountOut; if supplied, abort with slippage_exceeded when fresh quote output < expectedAmountOut × (1 − tolerance); if omitted, fresh quote is the baseline and the on-chain amountOutMinimum is the only rail.
 22. **DCR posture**: Open DCR + hardened consent — /register stays open (Claude connector needs it); consent page gets CSRF token bound to the auth request, prominent display of client name + exact redirect URI, strict redirect_uri validation.
 23. **Rate limiter (amends #16)**: RateLimiter Durable Object (strongly consistent) enforcing 5 failed/IP/10min AND a global 20 failed/10min budget across all IPs; IP from trusted CF-Connecting-IP only.
+
+## Round 7 (post plan-review iteration 1)
+26. **Consent scope grant (amends nothing — confirms #15/#17 literally)**: Always grant both scopes `["swap:read","swap:write"]` unconditionally at consent, exactly as spec §5.6 states — never derived from client-requested scopes. The plan's scope-intersection draft is rejected. T32's read-only-token negative tests use a test-only props-injection helper (`mintTestToken`), never a production path.

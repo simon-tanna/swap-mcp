@@ -6,7 +6,11 @@
       "id": "T1",
       "title": "Dependencies, package scripts, node-pool vitest project",
       "domain": "general-purpose",
-      "file_targets": ["package.json", "vitest.config.ts", "test/node/canary.test.ts"],
+      "file_targets": [
+        "package.json",
+        "vitest.config.ts",
+        "test/node/canary.test.ts"
+      ],
       "deps": [],
       "status": "pending",
       "commit_sha": null,
@@ -19,8 +23,14 @@
       "id": "T2",
       "title": "wrangler.jsonc base bindings + workers-pool vitest project",
       "domain": "general-purpose",
-      "file_targets": ["wrangler.jsonc", "vitest.config.ts", "test/workers/canary.test.ts"],
-      "deps": ["T1"],
+      "file_targets": [
+        "wrangler.jsonc",
+        "vitest.config.ts",
+        "test/workers/canary.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -30,10 +40,15 @@
     },
     {
       "id": "T3",
-      "title": "Errors — closed ErrorCode allowlist, classify, envelope",
+      "title": "Errors \u2014 closed ErrorCode allowlist, classify, envelope",
       "domain": "general-purpose",
-      "file_targets": ["src/errors.ts", "test/node/errors.test.ts"],
-      "deps": ["T1"],
+      "file_targets": [
+        "src/errors.ts",
+        "test/node/errors.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -45,8 +60,14 @@
       "id": "T4",
       "title": "Logger redaction + enforced envelope redaction",
       "domain": "general-purpose",
-      "file_targets": ["src/log.ts", "src/errors.ts", "test/node/log.test.ts"],
-      "deps": ["T3"],
+      "file_targets": [
+        "src/log.ts",
+        "src/errors.ts",
+        "test/node/log.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -56,10 +77,16 @@
     },
     {
       "id": "T5",
-      "title": "Env validation — fail-closed, host allowlist, secret accessors",
+      "title": "Env validation \u2014 fail-closed, host allowlist, secret accessors",
       "domain": "general-purpose",
-      "file_targets": ["src/env.ts", "test/node/env.test.ts"],
-      "deps": ["T2", "T3"],
+      "file_targets": [
+        "src/env.ts",
+        "test/node/env.test.ts"
+      ],
+      "deps": [
+        "T2",
+        "T3"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -71,8 +98,13 @@
       "id": "T6",
       "title": "Constant-time passphrase compare (M10)",
       "domain": "general-purpose",
-      "file_targets": ["src/auth/constantTime.ts", "test/node/constant-time.test.ts"],
-      "deps": ["T1"],
+      "file_targets": [
+        "src/auth/constantTime.ts",
+        "test/node/constant-time.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -82,10 +114,15 @@
     },
     {
       "id": "T7",
-      "title": "Auth guards — transport, audience, scope",
+      "title": "Auth guards \u2014 transport, audience, scope",
       "domain": "general-purpose",
-      "file_targets": ["src/auth/guards.ts", "test/node/guards.test.ts"],
-      "deps": ["T3"],
+      "file_targets": [
+        "src/auth/guards.ts",
+        "test/node/guards.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -97,8 +134,17 @@
       "id": "T8",
       "title": "D1 schema, drizzle-kit migrations, test-migration wiring",
       "domain": "general-purpose",
-      "file_targets": ["src/db/schema.ts", "drizzle.config.ts", "drizzle/", "test/setup/apply-migrations.ts", "vitest.config.ts", "test/workers/schema.test.ts"],
-      "deps": ["T2"],
+      "file_targets": [
+        "src/db/schema.ts",
+        "drizzle.config.ts",
+        "drizzle/",
+        "test/setup/apply-migrations.ts",
+        "vitest.config.ts",
+        "test/workers/schema.test.ts"
+      ],
+      "deps": [
+        "T2"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -110,8 +156,13 @@
       "id": "T9",
       "title": "Mainnet address constants + native sentinel",
       "domain": "general-purpose",
-      "file_targets": ["src/engine/constants.ts", "test/node/constants.test.ts"],
-      "deps": ["T1"],
+      "file_targets": [
+        "src/engine/constants.ts",
+        "test/node/constants.test.ts"
+      ],
+      "deps": [
+        "T1"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -123,8 +174,13 @@
       "id": "T10",
       "title": "Opaque cursor codec with tamper rejection",
       "domain": "general-purpose",
-      "file_targets": ["src/repository/cursor.ts", "test/node/cursor.test.ts"],
-      "deps": ["T3"],
+      "file_targets": [
+        "src/repository/cursor.ts",
+        "test/node/cursor.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -136,8 +192,14 @@
       "id": "T11",
       "title": "Transactions repository with cursor pagination",
       "domain": "general-purpose",
-      "file_targets": ["src/repository/transactions.ts", "test/workers/repository.test.ts"],
-      "deps": ["T8", "T10"],
+      "file_targets": [
+        "src/repository/transactions.ts",
+        "test/workers/repository.test.ts"
+      ],
+      "deps": [
+        "T8",
+        "T10"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -149,8 +211,13 @@
       "id": "T12",
       "title": "Pure safety rails, drift math, slippage units",
       "domain": "general-purpose",
-      "file_targets": ["src/services/rails.ts", "test/node/rails.test.ts"],
-      "deps": ["T3"],
+      "file_targets": [
+        "src/services/rails.ts",
+        "test/node/rails.test.ts"
+      ],
+      "deps": [
+        "T3"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -160,10 +227,17 @@
     },
     {
       "id": "T13",
-      "title": "TradingApiClient — request/response shapes + routing assertion",
+      "title": "TradingApiClient \u2014 request/response shapes + routing assertion",
       "domain": "general-purpose",
-      "file_targets": ["src/engine/tradingApiClient.ts", "test/fixtures/tradingApi.ts", "test/node/trading-api-shapes.test.ts"],
-      "deps": ["T3", "T9"],
+      "file_targets": [
+        "src/engine/tradingApiClient.ts",
+        "test/fixtures/tradingApi.ts",
+        "test/node/trading-api-shapes.test.ts"
+      ],
+      "deps": [
+        "T3",
+        "T9"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -173,10 +247,15 @@
     },
     {
       "id": "T14",
-      "title": "TradingApiClient — 8s timeout + jittered retry policy",
+      "title": "TradingApiClient \u2014 8s timeout + jittered retry policy",
       "domain": "general-purpose",
-      "file_targets": ["src/engine/tradingApiClient.ts", "test/node/trading-api-retry.test.ts"],
-      "deps": ["T13"],
+      "file_targets": [
+        "src/engine/tradingApiClient.ts",
+        "test/node/trading-api-retry.test.ts"
+      ],
+      "deps": [
+        "T13"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -186,10 +265,17 @@
     },
     {
       "id": "T15",
-      "title": "ViemSigner — direction-aware balances, submit, receipt disambiguation",
+      "title": "ViemSigner \u2014 direction-aware balances, submit, receipt disambiguation",
       "domain": "general-purpose",
-      "file_targets": ["src/engine/viemSigner.ts", "test/fixtures/receipts.ts", "test/node/viem-signer.test.ts"],
-      "deps": ["T3", "T9"],
+      "file_targets": [
+        "src/engine/viemSigner.ts",
+        "test/fixtures/receipts.ts",
+        "test/node/viem-signer.test.ts"
+      ],
+      "deps": [
+        "T3",
+        "T9"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -201,8 +287,15 @@
       "id": "T16",
       "title": "swapService.getQuote",
       "domain": "general-purpose",
-      "file_targets": ["src/services/swapService.ts", "test/node/swap-service-quote.test.ts"],
-      "deps": ["T11", "T13", "T15"],
+      "file_targets": [
+        "src/services/swapService.ts",
+        "test/node/swap-service-quote.test.ts"
+      ],
+      "deps": [
+        "T11",
+        "T13",
+        "T15"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -214,8 +307,15 @@
       "id": "T17",
       "title": "swapService.executeSwap orchestration + gas-headroom balance rail",
       "domain": "general-purpose",
-      "file_targets": ["src/services/swapService.ts", "test/node/swap-service-execute.test.ts"],
-      "deps": ["T12", "T14", "T16"],
+      "file_targets": [
+        "src/services/swapService.ts",
+        "test/node/swap-service-execute.test.ts"
+      ],
+      "deps": [
+        "T12",
+        "T14",
+        "T16"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -225,10 +325,17 @@
     },
     {
       "id": "T18",
-      "title": "SwapCoordinator DO — class, binding, happy-path lifecycle",
+      "title": "SwapCoordinator DO \u2014 class, binding, happy-path lifecycle",
       "domain": "general-purpose",
-      "file_targets": ["src/coordinator/SwapCoordinator.ts", "wrangler.jsonc", "src/index.ts", "test/workers/coordinator-lifecycle.test.ts"],
-      "deps": ["T17"],
+      "file_targets": [
+        "src/coordinator/SwapCoordinator.ts",
+        "wrangler.jsonc",
+        "src/index.ts",
+        "test/workers/coordinator-lifecycle.test.ts"
+      ],
+      "deps": [
+        "T17"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -238,10 +345,14 @@
     },
     {
       "id": "T19",
-      "title": "Coordinator abort paths — drift, approval, rails disposition",
+      "title": "Coordinator abort paths \u2014 drift, approval, rails disposition",
       "domain": "general-purpose",
-      "file_targets": ["test/workers/coordinator-aborts.test.ts"],
-      "deps": ["T18"],
+      "file_targets": [
+        "test/workers/coordinator-aborts.test.ts"
+      ],
+      "deps": [
+        "T18"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -253,8 +364,14 @@
       "id": "T20",
       "title": "Receipt-wait timeout vs revert disambiguation (M3)",
       "domain": "general-purpose",
-      "file_targets": ["src/services/swapService.ts", "src/coordinator/SwapCoordinator.ts", "test/workers/coordinator-receipt.test.ts"],
-      "deps": ["T18"],
+      "file_targets": [
+        "src/services/swapService.ts",
+        "src/coordinator/SwapCoordinator.ts",
+        "test/workers/coordinator-receipt.test.ts"
+      ],
+      "deps": [
+        "T18"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -266,8 +383,14 @@
       "id": "T21",
       "title": "G7 concurrency mutex + G9 mid-swap interleaving",
       "domain": "general-purpose",
-      "file_targets": ["src/coordinator/SwapCoordinator.ts", "test/workers/coordinator-concurrency.test.ts"],
-      "deps": ["T18", "T20"],
+      "file_targets": [
+        "src/coordinator/SwapCoordinator.ts",
+        "test/workers/coordinator-concurrency.test.ts"
+      ],
+      "deps": [
+        "T18",
+        "T20"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -277,10 +400,20 @@
     },
     {
       "id": "T22",
-      "title": "MCP read-tool registrars — get_quote, get_transaction, list_transactions",
+      "title": "MCP read-tool registrars \u2014 get_quote, get_transaction, list_transactions",
       "domain": "general-purpose",
-      "file_targets": ["src/mcp/tools/getQuote.ts", "src/mcp/tools/getTransaction.ts", "src/mcp/tools/listTransactions.ts", "src/mcp/tools/deps.ts", "test/workers/mcp-read-tools.test.ts"],
-      "deps": ["T7", "T16", "T18"],
+      "file_targets": [
+        "src/mcp/tools/getQuote.ts",
+        "src/mcp/tools/getTransaction.ts",
+        "src/mcp/tools/listTransactions.ts",
+        "src/mcp/tools/deps.ts",
+        "test/workers/mcp-read-tools.test.ts"
+      ],
+      "deps": [
+        "T7",
+        "T16",
+        "T18"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -292,8 +425,13 @@
       "id": "T23",
       "title": "MCP execute_swap registrar",
       "domain": "general-purpose",
-      "file_targets": ["src/mcp/tools/executeSwap.ts", "test/workers/mcp-execute-tool.test.ts"],
-      "deps": ["T22"],
+      "file_targets": [
+        "src/mcp/tools/executeSwap.ts",
+        "test/workers/mcp-execute-tool.test.ts"
+      ],
+      "deps": [
+        "T22"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -305,8 +443,16 @@
       "id": "T24",
       "title": "SwapMcpAgent class + DO binding",
       "domain": "general-purpose",
-      "file_targets": ["src/mcp/SwapMcpAgent.ts", "wrangler.jsonc", "src/index.ts", "test/workers/mcp-agent.test.ts"],
-      "deps": ["T22", "T23"],
+      "file_targets": [
+        "src/mcp/SwapMcpAgent.ts",
+        "wrangler.jsonc",
+        "src/index.ts",
+        "test/workers/mcp-agent.test.ts"
+      ],
+      "deps": [
+        "T22",
+        "T23"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -316,10 +462,16 @@
     },
     {
       "id": "T25",
-      "title": "REST props-adapter middleware + error→HTTP mapping",
+      "title": "REST props-adapter middleware + error\u2192HTTP mapping",
       "domain": "general-purpose",
-      "file_targets": ["src/api/middleware/props.ts", "test/workers/api-middleware.test.ts"],
-      "deps": ["T3", "T7"],
+      "file_targets": [
+        "src/api/middleware/props.ts",
+        "test/workers/api-middleware.test.ts"
+      ],
+      "deps": [
+        "T3",
+        "T7"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -331,8 +483,18 @@
       "id": "T26",
       "title": "REST mirror routes (4)",
       "domain": "general-purpose",
-      "file_targets": ["src/api/apiApp.ts", "src/api/routes/quote.ts", "src/api/routes/swap.ts", "src/api/routes/transactions.ts", "test/workers/api-routes.test.ts"],
-      "deps": ["T16", "T18", "T25"],
+      "file_targets": [
+        "src/api/apiApp.ts",
+        "src/api/routes/quote.ts",
+        "src/api/routes/swap.ts",
+        "src/api/routes/transactions.ts",
+        "test/workers/api-routes.test.ts"
+      ],
+      "deps": [
+        "T16",
+        "T18",
+        "T25"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -344,8 +506,13 @@
       "id": "T27",
       "title": "publicApp + /healthz",
       "domain": "general-purpose",
-      "file_targets": ["src/oauth/publicApp.ts", "test/workers/healthz.test.ts"],
-      "deps": ["T2"],
+      "file_targets": [
+        "src/oauth/publicApp.ts",
+        "test/workers/healthz.test.ts"
+      ],
+      "deps": [
+        "T2"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -357,8 +524,15 @@
       "id": "T28",
       "title": "RateLimiter Durable Object",
       "domain": "general-purpose",
-      "file_targets": ["src/ratelimit/RateLimiter.ts", "wrangler.jsonc", "src/index.ts", "test/workers/rate-limiter.test.ts"],
-      "deps": ["T2"],
+      "file_targets": [
+        "src/ratelimit/RateLimiter.ts",
+        "wrangler.jsonc",
+        "src/index.ts",
+        "test/workers/rate-limiter.test.ts"
+      ],
+      "deps": [
+        "T2"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -370,8 +544,15 @@
       "id": "T29",
       "title": "CSRF codec + consent GET (display, redirect + resource validation)",
       "domain": "general-purpose",
-      "file_targets": ["src/oauth/csrf.ts", "src/oauth/publicApp.ts", "test/workers/consent-get.test.ts"],
-      "deps": ["T5", "T27"],
+      "file_targets": [
+        "src/oauth/csrf.ts",
+        "src/oauth/publicApp.ts",
+        "test/workers/consent-get.test.ts"
+      ],
+      "deps": [
+        "T5",
+        "T27"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -381,10 +562,17 @@
     },
     {
       "id": "T30",
-      "title": "Consent POST — ordered gate chain + completeAuthorization",
+      "title": "Consent POST \u2014 ordered gate chain + completeAuthorization",
       "domain": "general-purpose",
-      "file_targets": ["src/oauth/publicApp.ts", "test/workers/consent-post.test.ts"],
-      "deps": ["T6", "T28", "T29"],
+      "file_targets": [
+        "src/oauth/publicApp.ts",
+        "test/workers/consent-post.test.ts"
+      ],
+      "deps": [
+        "T6",
+        "T28",
+        "T29"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -396,8 +584,17 @@
       "id": "T31",
       "title": "OAuthProvider wiring + integration happy path",
       "domain": "general-purpose",
-      "file_targets": ["src/index.ts", "vitest.config.ts", "test/helpers/mintToken.ts", "test/integration/oauth-happy.test.ts"],
-      "deps": ["T24", "T26", "T30"],
+      "file_targets": [
+        "src/index.ts",
+        "vitest.config.ts",
+        "test/helpers/mintToken.ts",
+        "test/integration/oauth-happy.test.ts"
+      ],
+      "deps": [
+        "T24",
+        "T26",
+        "T30"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -409,8 +606,13 @@
       "id": "T32",
       "title": "Integration negative paths",
       "domain": "general-purpose",
-      "file_targets": ["test/integration/oauth-negative.test.ts"],
-      "deps": ["T31"],
+      "file_targets": [
+        "test/integration/oauth-negative.test.ts",
+        "test/helpers/mintTestToken.ts"
+      ],
+      "deps": [
+        "T31"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -420,10 +622,20 @@
     },
     {
       "id": "T33",
-      "title": "Documentation (Diátaxis)",
+      "title": "Documentation (Di\u00e1taxis)",
       "domain": "general-purpose",
-      "file_targets": ["docs/tutorials/getting-started.md", "docs/how-to/configure-secrets-and-deploy.md", "docs/how-to/one-time-usdc-approval.md", "docs/how-to/reconcile-stranded-submitted.md", "docs/reference/api-and-data-model.md", "docs/explanation/architecture-decisions.md", "test/node/docs-presence.test.ts"],
-      "deps": ["T32"],
+      "file_targets": [
+        "docs/tutorials/getting-started.md",
+        "docs/how-to/configure-secrets-and-deploy.md",
+        "docs/how-to/one-time-usdc-approval.md",
+        "docs/how-to/reconcile-stranded-submitted.md",
+        "docs/reference/api-and-data-model.md",
+        "docs/explanation/architecture-decisions.md",
+        "test/node/docs-presence.test.ts"
+      ],
+      "deps": [
+        "T32"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
@@ -435,8 +647,14 @@
       "id": "T34",
       "title": "Manual smoke script",
       "domain": "general-purpose",
-      "file_targets": ["scripts/smoke.ts", "docs/how-to/configure-secrets-and-deploy.md", "test/node/smoke-presence.test.ts"],
-      "deps": ["T33"],
+      "file_targets": [
+        "scripts/smoke.ts",
+        "docs/how-to/configure-secrets-and-deploy.md",
+        "test/node/smoke-presence.test.ts"
+      ],
+      "deps": [
+        "T33"
+      ],
       "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
