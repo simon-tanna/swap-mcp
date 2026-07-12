@@ -218,7 +218,7 @@
       "deps": [
         "T3"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
       "task_start_sha": null,
       "spec_review_sha": null,
