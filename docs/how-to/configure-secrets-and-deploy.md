@@ -93,6 +93,9 @@ export SWAP_MCP_BASE_URL=https://your-worker.workers.dev
 export AUTH_PASSPHRASE=…   # the consent passphrase
 ```
 
+The smoke client does not need `UNISWAP_API_KEY` — the deployed worker already
+holds it server-side and makes the Trading API calls itself.
+
 To also send the one-time USDC→Universal Router approval that the
 [`USDC_TO_ETH` direction requires](one-time-usdc-approval.md), run
 `pnpm smoke -- --approve` with `SWAP_PRIVATE_KEY` and `ETH_RPC_URL` also

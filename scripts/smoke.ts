@@ -5,6 +5,8 @@
 //
 // This mirrors test/helpers/mintToken.ts (the real OAuth 2.1 + PKCE consent
 // dance) but drives a DEPLOYED base URL over `fetch`, not the in-process worker.
+// The deployed worker holds UNISWAP_API_KEY server-side and makes the Trading
+// API calls itself, so this client never reads a Uniswap key.
 // The one-time USDC approval mirrors docs/how-to/one-time-usdc-approval.md: the
 // service NEVER auto-sends it, so this script only sends it behind BOTH the
 // `--approve` flag AND an interactive confirmation prompt.
@@ -36,11 +38,10 @@ const ERC20_APPROVE_ABI = parseAbi([
 const SMOKE_ORIGIN = "https://claude.ai";
 const REDIRECT_URI = "https://claude.ai/api/mcp/auth_callback";
 
-/** The five env vars this script reads; the first two are always required. */
+/** The four env vars this script reads; the first two are always required. */
 interface SmokeEnv {
   baseUrl: string;
   passphrase: string;
-  uniswapApiKey?: string;
   ethRpcUrl?: string;
   swapPrivateKey?: string;
 }
@@ -101,9 +102,6 @@ function readEnv(opts: { requireApprovalSecrets: boolean }): SmokeEnv {
   return {
     baseUrl,
     passphrase,
-    ...(process.env.UNISWAP_API_KEY !== undefined && {
-      uniswapApiKey: process.env.UNISWAP_API_KEY,
-    }),
     ...(ethRpcUrl !== undefined && { ethRpcUrl }),
     ...(swapPrivateKey !== undefined && { swapPrivateKey }),
   };
@@ -226,7 +224,7 @@ async function handleApproval(
 ): Promise<void> {
   const maxAllowance = (1n << 256n) - 1n;
   console.log(
-    `one-time USDC approval (USDC→ETH only): approve(${UNIVERSAL_ROUTER_ADDRESS}, MAX) on token ${USDC_ADDRESS}`,
+    `one-time USDC approval (USDC→ETH only): approve(${UNIVERSAL_ROUTER_ADDRESS}, ${maxAllowance}) on token ${USDC_ADDRESS}`,
   );
 
   if (!wantsApprove) {
