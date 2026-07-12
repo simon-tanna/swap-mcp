@@ -29,3 +29,12 @@ All rounds run interactively via AskUserQuestion. Answers are literal authorisat
 - Every build phase TDD.
 - Documentation via writing-documentation (Diátaxis) skill.
 - Cloudflare bindings/tokens: placeholders; user supplies real values.
+
+## Round 5 (post spec-review v1)
+14. **Quote drift**: Abort on drift — if fresh quote output < preview output × (1 − tolerance), abort with slippage_exceeded, failed row, no tx sent.
+15. **Scopes**: swap:read + swap:write, both granted at consent.
+16. **Rate limit**: Throttle /authorize — 5 failed attempts per IP per 10 min via OAUTH_KV counter, then 429.
+17. **Receipt wait**: Bound tied to deadlineSeconds (default 1200s); on timeout status stays 'submitted' with txHash recorded, result reports timed_out for reconciliation.
+18. **API resilience**: 8s per-call timeout → upstream_unavailable; ≤2 jittered exp-backoff retries (250ms→500ms) for /quote and /check_approval only; never retry /swap or submitted txs.
+19. **Pagination**: Opaque cursor over createdAt+id; default limit 20, max 100.
+20. **Runbook**: Yes — docs how-to for reconciling swaps stranded in 'submitted'.
