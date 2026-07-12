@@ -1,10 +1,45 @@
 import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 
 import { buildDefaultApiDeps, createApiApp } from "./api/apiApp";
+import { transportGuard } from "./auth/guards";
 import { SwapCoordinator } from "./coordinator/SwapCoordinator";
+import { validateEnv } from "./env";
+import { classify, CURATED_MESSAGE } from "./errors";
+import { errorCodeToHttpStatus } from "./api/middleware/props";
 import { SwapMcpAgent } from "./mcp/SwapMcpAgent";
 import { publicApp } from "./oauth/publicApp";
 import { RateLimiter } from "./ratelimit/RateLimiter";
+
+/** The streamable-HTTP MCP handler the OAuthProvider guards and dispatches to. */
+const mcpTransport = SwapMcpAgent.serve("/mcp", { binding: "SwapMcpAgent" });
+
+/**
+ * Per-request adapter for the `/mcp` surface. Runs {@link transportGuard} BEFORE
+ * dispatching to the MCP transport (Major 4, §5.5(a)): the Origin allowlist and
+ * the required `MCP-Protocol-Version` header are enforced on the `/mcp` path
+ * before any tool is reached. A guard failure is mapped to the same curated,
+ * non-leaking `{ error: { code, message } }` body and HTTP status the REST
+ * surface uses, so a rejected transport request never touches the coordinator or
+ * the MCP session machinery.
+ */
+const mcpApp = {
+  fetch(
+    request: Request,
+    env: CloudflareBindings,
+    ctx: ExecutionContext,
+  ): Response | Promise<Response> {
+    try {
+      transportGuard(request, validateEnv(env).allowedOrigins);
+    } catch (err) {
+      const code = classify(err);
+      return Response.json(
+        { error: { code, message: CURATED_MESSAGE[code] } },
+        { status: errorCodeToHttpStatus(code) },
+      );
+    }
+    return mcpTransport.fetch(request, env, ctx);
+  },
+};
 
 /**
  * Thin per-request adapter for the REST surface. The OAuthProvider guards this
@@ -52,7 +87,7 @@ const apiApp = {
  */
 export default new OAuthProvider({
   apiHandlers: {
-    "/mcp": SwapMcpAgent.serve("/mcp", { binding: "SwapMcpAgent" }),
+    "/mcp": mcpApp,
     "/api": apiApp,
   },
   defaultHandler: publicApp,
