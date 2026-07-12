@@ -11,7 +11,9 @@ import { z } from "zod";
 export const swaps = sqliteTable(
   "swaps",
   {
-    id: text().primaryKey(),
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     userId: text().notNull(),
     direction: text().notNull(),
     amountIn: text().notNull(),
