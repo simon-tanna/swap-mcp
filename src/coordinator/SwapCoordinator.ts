@@ -45,6 +45,20 @@ export class SwapCoordinator extends DurableObject<CloudflareBindings> {
   #deps?: SwapServiceDeps;
 
   /**
+   * Single-flight mutex tail: each `executeSwap` chains its work onto the prior
+   * call's settlement, so concurrent calls to the same live instance are fully
+   * SERIALIZED — the engine work of call N+1 begins only after call N settles.
+   *
+   * Mutex-eviction bound: `#tail` is an IN-MEMORY, per-live-instance primitive.
+   * It serializes only within one running DO instance and does NOT survive DO
+   * eviction/hibernation (a re-instantiated DO starts with a fresh resolved
+   * tail). Cross-eviction safety therefore rests NOT on this mutex but on the
+   * single-in-flight-swap invariant (one wallet) plus D1 reconciliation of any
+   * `submitted`-stranded row — the mutex is a within-instance ordering aid only.
+   */
+  #tail: Promise<unknown> = Promise.resolve();
+
+  /**
    * Engine deps for `executeSwap`. Lazily built from `this.env` on first read
    * (per-request clients via the T15 factory) and injectable in tests by
    * assigning fakes; the getter never stores raw key material as a field.
@@ -72,28 +86,36 @@ export class SwapCoordinator extends DurableObject<CloudflareBindings> {
   async executeSwap(
     params: ExecuteSwapInput & { userId: string },
   ): Promise<SwapResult> {
-    try {
-      const result = await executeSwap(this.deps, params);
-      log(result.status === "failed" ? "error" : "info", {
-        event: "executeSwap",
-        transactionId: result.transactionId,
-        status: result.status,
-        result: result.result,
-        errorCode: result.errorCode,
-        direction: params.direction,
-      });
-      return result;
-    } catch {
-      // `executeSwap` catches internally and returns a `SwapResult`, so an
-      // unexpected throw here is a defect. Log only allowlisted fields — never
-      // the caught error object — and return a safe failed result.
-      log("error", {
-        event: "executeSwap",
-        status: "error",
-        errorCode: "internal",
-        direction: params.direction,
-      });
-      throw new Error("executeSwap failed unexpectedly");
-    }
+    const doWork = async (): Promise<SwapResult> => {
+      try {
+        const result = await executeSwap(this.deps, params);
+        log(result.status === "failed" ? "error" : "info", {
+          event: "executeSwap",
+          transactionId: result.transactionId,
+          status: result.status,
+          result: result.result,
+          errorCode: result.errorCode,
+          direction: params.direction,
+        });
+        return result;
+      } catch {
+        // `executeSwap` catches internally and returns a `SwapResult`, so an
+        // unexpected throw here is a defect. Log only allowlisted fields — never
+        // the caught error object — and return a safe failed result.
+        log("error", {
+          event: "executeSwap",
+          status: "error",
+          errorCode: "internal",
+          direction: params.direction,
+        });
+        throw new Error("executeSwap failed unexpectedly");
+      }
+    };
+
+    // Chain onto the tail regardless of the prior call's outcome, so a rejection
+    // never breaks serialization; the caller still observes THIS run's result.
+    const run = this.#tail.then(doWork, doWork);
+    this.#tail = run.catch(() => {});
+    return run;
   }
 }
