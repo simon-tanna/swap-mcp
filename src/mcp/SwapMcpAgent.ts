@@ -32,7 +32,16 @@ export class SwapMcpAgent extends McpAgent<
 > {
   // `server` is an abstract property on McpAgent; the SDK connects its transport
   // to this instance, so tool registration in `init()` targets the live server.
-  server = new McpServer({ name: "swap-mcp", version: "1.0.0" });
+  server = new McpServer(
+    { name: "swap-mcp", version: "1.0.0" },
+    {
+      instructions:
+        "Executes ETH↔USDC swaps via Uniswap. All token amounts are integer " +
+        "base units — wei for ETH (1 ETH = 1e18), 6-decimal for USDC (1 USDC = 1e6). " +
+        "Typical flow: price a swap with get_quote, then execute_swap using the quoted " +
+        "output as expectedAmountOut; track results with list_transactions and get_transaction.",
+    },
+  );
 
   /**
    * Build the request-invariant deps once per DO instance and register all four

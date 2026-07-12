@@ -2,13 +2,27 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { AppError } from "../../errors";
+import { swapSelectSchema } from "../../db/schema";
 import type { ToolDeps } from "./deps";
 import { guarded } from "./guarded";
 
 /** Bare Zod v4 raw shape for `get_transaction` (plain object, not a `z.object`). */
 export const getTransactionInputShape = {
-  id: z.string(),
+  id: z
+    .string()
+    .min(1)
+    .describe(
+      "The swap transaction id, as returned by execute_swap or list_transactions.",
+    ),
 } as const;
+
+/**
+ * Bare Zod v4 raw shape for the typed output: the raw `.shape` of the Drizzle
+ * `swapSelectSchema`, so the row contract can't drift from the table. Nullable
+ * columns are `.nullable()` (drizzle-zod), matching the explicit `null`s a row
+ * carries. Exported for the shape contract test.
+ */
+export const getTransactionOutputShape = swapSelectSchema.shape;
 
 /**
  * Register `get_transaction`: look up one swap row by id and surface its live
@@ -22,8 +36,20 @@ export function registerGetTransaction(
   server.registerTool(
     "get_transaction",
     {
-      description: "Look up a single swap transaction by id.",
+      description:
+        "Look up one swap by its id (as returned by execute_swap or list_transactions) " +
+        "and return its current lifecycle state, amounts, tx hash, and error code. " +
+        "Read-only. Returns not_found if the id is unknown. To browse without an id, " +
+        "use list_transactions.",
       inputSchema: getTransactionInputShape,
+      outputSchema: getTransactionOutputShape,
+      annotations: {
+        title: "Get swap transaction",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     (args) =>
       guarded(deps, "swap:read", async () => {
@@ -32,7 +58,7 @@ export function registerGetTransaction(
           throw new AppError("not_found");
         }
         return {
-          content: [{ type: "text", text: JSON.stringify(row) }],
+          content: [{ type: "text", text: JSON.stringify(row, null, 2) }],
           structuredContent: { ...row },
         };
       }),

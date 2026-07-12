@@ -65,6 +65,24 @@ describe("SwapMcpAgent", () => {
     expect(names).toHaveLength(EXPECTED_TOOLS.length);
   });
 
+  test("the server advertises instructions describing the base-unit convention", async () => {
+    const id = env.SwapMcpAgent.idFromName("instructions");
+    const stub = env.SwapMcpAgent.get(id);
+
+    const instructions = await runInDurableObject(
+      stub,
+      async (agent: SwapMcpAgent) => {
+        agent.props = okProps();
+        await agent.init();
+        const client = await connectToAgent(agent);
+        return client.getInstructions();
+      },
+    );
+
+    expect(instructions).toBeTruthy();
+    expect((instructions ?? "").toLowerCase()).toContain("base units");
+  });
+
   test("getProps is a live thunk over this.props", async () => {
     const id = env.SwapMcpAgent.idFromName("live-thunk");
     const stub = env.SwapMcpAgent.get(id);
