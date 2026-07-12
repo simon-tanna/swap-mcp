@@ -455,11 +455,11 @@
         "T22",
         "T23"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "3870cd26ca6a686f18de0b8d9752b686b70aaf90",
       "task_start_sha": "689b14ad44ed4802fa2f2d5d7e3ac437a3791c70",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "3870cd26ca6a686f18de0b8d9752b686b70aaf90",
+      "quality_review_sha": "3870cd26ca6a686f18de0b8d9752b686b70aaf90",
       "blocker_count": 0
     },
     {
