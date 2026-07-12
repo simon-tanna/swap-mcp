@@ -30,9 +30,11 @@ function readWindow(
 
 /**
  * Durable Object enforcing fail-safe-closed failure budgets: a per-IP ceiling
- * and a global ceiling, each over a fixed 10-minute tumbling window. DO
- * single-threaded serialization makes each read-decide-increment-write atomic,
- * so the ceiling holds exactly under concurrent calls.
+ * and a global ceiling, each over a fixed 10-minute tumbling window. The ceiling
+ * is enforced by an explicit atomic `blockConcurrencyWhile` read-modify-write in
+ * `checkAndConsume` — NOT merely by input-gate serialization, which does not
+ * reliably hold across that method's multiple storage awaits, letting two
+ * concurrent calls read the same pre-increment count and leak the ceiling.
  *
  * Bounded key space: this is a single, unsharded global instance whose `ip:`
  * keys are keyed by the caller-supplied `ip` — in the real consent flow (T30)
@@ -61,28 +63,34 @@ export class RateLimiter extends DurableObject<CloudflareBindings> {
     const nowMs = this.now();
     const ipKey = `ip:${ip}`;
 
-    const ipWindow = readWindow(
-      await this.ctx.storage.get<WindowState>(ipKey),
-      nowMs,
-    );
-    if (ipWindow.count >= PER_IP_BUDGET) {
-      return { allowed: false, reason: "per_ip" };
-    }
+    // The whole read → decide → increment → put runs inside one
+    // blockConcurrencyWhile so no other event is processed until it completes:
+    // two concurrent calls cannot both observe the same pre-increment count.
+    // Local-storage-only (no external I/O), the case where this is appropriate.
+    return this.ctx.blockConcurrencyWhile(async () => {
+      const ipWindow = readWindow(
+        await this.ctx.storage.get<WindowState>(ipKey),
+        nowMs,
+      );
+      if (ipWindow.count >= PER_IP_BUDGET) {
+        return { allowed: false, reason: "per_ip" };
+      }
 
-    const globalWindow = readWindow(
-      await this.ctx.storage.get<WindowState>("global"),
-      nowMs,
-    );
-    if (globalWindow.count >= GLOBAL_BUDGET) {
-      return { allowed: false, reason: "global" };
-    }
+      const globalWindow = readWindow(
+        await this.ctx.storage.get<WindowState>("global"),
+        nowMs,
+      );
+      if (globalWindow.count >= GLOBAL_BUDGET) {
+        return { allowed: false, reason: "global" };
+      }
 
-    ipWindow.count += 1;
-    globalWindow.count += 1;
-    // Single multi-key put is one atomic transaction, so a mid-method
-    // eviction/error can never persist one counter without the other.
-    await this.ctx.storage.put({ [ipKey]: ipWindow, global: globalWindow });
-    return { allowed: true };
+      ipWindow.count += 1;
+      globalWindow.count += 1;
+      // Single multi-key put is one atomic transaction, so a mid-method
+      // eviction/error can never persist one counter without the other.
+      await this.ctx.storage.put({ [ipKey]: ipWindow, global: globalWindow });
+      return { allowed: true };
+    });
   }
 
   /**
