@@ -575,11 +575,11 @@
         "T28",
         "T29"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "4d797ee",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "4d797ee",
+      "quality_review_sha": "4d797ee",
       "blocker_count": 0
     },
     {
