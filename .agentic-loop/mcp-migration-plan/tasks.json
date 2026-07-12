@@ -474,9 +474,9 @@
         "T3",
         "T7"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "4ca6be1b0a72a4cd34397c28bc868e03e9b7e06a",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
