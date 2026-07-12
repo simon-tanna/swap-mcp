@@ -28,14 +28,14 @@
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      "id": "<placeholder-kv-id>",
+      "id": "a6ab87229be3401daa52522f8b1c902c",
     },
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "swap-mcp",
-      "database_id": "<placeholder-d1-id>",
+      "database_id": "709b442a-7837-401e-98f3-eba6c055874d",
       "migrations_dir": "drizzle",
     },
   ],
