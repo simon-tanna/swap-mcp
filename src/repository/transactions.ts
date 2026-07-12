@@ -2,25 +2,30 @@ import { and, desc, eq, lt, or } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
 import { swaps } from "../db/schema";
+import type {
+  NewSwapRow,
+  SwapDirection,
+  SwapRow,
+  SwapStatus,
+} from "../db/schema";
 import type { ErrorCode } from "../errors";
 import { decodeCursor, encodeCursor } from "./cursor";
 
-/** A fully-materialized swap lifecycle row as read back from the database. */
-export type SwapRow = typeof swaps.$inferSelect;
-
-/** The four terminal-or-transient states a swap row may occupy. */
-export type SwapStatus = "pending" | "submitted" | "confirmed" | "failed";
+export type { SwapRow, SwapStatus } from "../db/schema";
 
 /** Caller-supplied fields for a new pending swap; the repo fills id/status/createdAt and nulls. */
-export type NewSwapInput = {
-  userId: string;
-  direction: "ETH_TO_USDC" | "USDC_TO_ETH";
-  amountIn: string;
-  quotedAmountOut: string;
-  slippageTolerancePct: string;
-  deadlineSeconds: number;
-  expectedAmountOut?: string;
-};
+export type NewSwapInput = Omit<
+  NewSwapRow,
+  | "id"
+  | "status"
+  | "createdAt"
+  | "txHash"
+  | "actualAmountOut"
+  | "errorCode"
+  | "gasUsed"
+  | "submittedAt"
+  | "settledAt"
+> & { direction: SwapDirection };
 
 /** Persistence port for swap lifecycle rows: insert, state transitions, lookup, and paged listing. */
 export interface TransactionsRepository {
