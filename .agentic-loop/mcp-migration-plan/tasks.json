@@ -12,7 +12,7 @@
         "test/node/canary.test.ts"
       ],
       "deps": [],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
       "task_start_sha": null,
       "spec_review_sha": null,
@@ -40,7 +40,7 @@
     },
     {
       "id": "T3",
-      "title": "Errors \u2014 closed ErrorCode allowlist, classify, envelope",
+      "title": "Errors — closed ErrorCode allowlist, classify, envelope",
       "domain": "general-purpose",
       "file_targets": [
         "src/errors.ts",
@@ -77,7 +77,7 @@
     },
     {
       "id": "T5",
-      "title": "Env validation \u2014 fail-closed, host allowlist, secret accessors",
+      "title": "Env validation — fail-closed, host allowlist, secret accessors",
       "domain": "general-purpose",
       "file_targets": [
         "src/env.ts",
@@ -114,7 +114,7 @@
     },
     {
       "id": "T7",
-      "title": "Auth guards \u2014 transport, audience, scope",
+      "title": "Auth guards — transport, audience, scope",
       "domain": "general-purpose",
       "file_targets": [
         "src/auth/guards.ts",
@@ -227,7 +227,7 @@
     },
     {
       "id": "T13",
-      "title": "TradingApiClient \u2014 request/response shapes + routing assertion",
+      "title": "TradingApiClient — request/response shapes + routing assertion",
       "domain": "general-purpose",
       "file_targets": [
         "src/engine/tradingApiClient.ts",
@@ -247,7 +247,7 @@
     },
     {
       "id": "T14",
-      "title": "TradingApiClient \u2014 8s timeout + jittered retry policy",
+      "title": "TradingApiClient — 8s timeout + jittered retry policy",
       "domain": "general-purpose",
       "file_targets": [
         "src/engine/tradingApiClient.ts",
@@ -265,7 +265,7 @@
     },
     {
       "id": "T15",
-      "title": "ViemSigner \u2014 direction-aware balances, submit, receipt disambiguation",
+      "title": "ViemSigner — direction-aware balances, submit, receipt disambiguation",
       "domain": "general-purpose",
       "file_targets": [
         "src/engine/viemSigner.ts",
@@ -325,7 +325,7 @@
     },
     {
       "id": "T18",
-      "title": "SwapCoordinator DO \u2014 class, binding, happy-path lifecycle",
+      "title": "SwapCoordinator DO — class, binding, happy-path lifecycle",
       "domain": "general-purpose",
       "file_targets": [
         "src/coordinator/SwapCoordinator.ts",
@@ -345,7 +345,7 @@
     },
     {
       "id": "T19",
-      "title": "Coordinator abort paths \u2014 drift, approval, rails disposition",
+      "title": "Coordinator abort paths — drift, approval, rails disposition",
       "domain": "general-purpose",
       "file_targets": [
         "test/workers/coordinator-aborts.test.ts"
@@ -400,7 +400,7 @@
     },
     {
       "id": "T22",
-      "title": "MCP read-tool registrars \u2014 get_quote, get_transaction, list_transactions",
+      "title": "MCP read-tool registrars — get_quote, get_transaction, list_transactions",
       "domain": "general-purpose",
       "file_targets": [
         "src/mcp/tools/getQuote.ts",
@@ -462,7 +462,7 @@
     },
     {
       "id": "T25",
-      "title": "REST props-adapter middleware + error\u2192HTTP mapping",
+      "title": "REST props-adapter middleware + error→HTTP mapping",
       "domain": "general-purpose",
       "file_targets": [
         "src/api/middleware/props.ts",
@@ -562,7 +562,7 @@
     },
     {
       "id": "T30",
-      "title": "Consent POST \u2014 ordered gate chain + completeAuthorization",
+      "title": "Consent POST — ordered gate chain + completeAuthorization",
       "domain": "general-purpose",
       "file_targets": [
         "src/oauth/publicApp.ts",
@@ -622,7 +622,7 @@
     },
     {
       "id": "T33",
-      "title": "Documentation (Di\u00e1taxis)",
+      "title": "Documentation (Diátaxis)",
       "domain": "general-purpose",
       "file_targets": [
         "docs/tutorials/getting-started.md",
