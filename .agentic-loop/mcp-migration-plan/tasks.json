@@ -474,11 +474,11 @@
         "T3",
         "T7"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "41c95c7271993613553a871b84bfc7ff4de56574",
       "task_start_sha": "4ca6be1b0a72a4cd34397c28bc868e03e9b7e06a",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "41c95c7271993613553a871b84bfc7ff4de56574",
+      "quality_review_sha": "41c95c7271993613553a871b84bfc7ff4de56574",
       "blocker_count": 0
     },
     {
