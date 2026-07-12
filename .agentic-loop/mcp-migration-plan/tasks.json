@@ -49,7 +49,7 @@
       "deps": [
         "T1"
       ],
-      "status": "in-progress",
+      "status": "pending",
       "commit_sha": null,
       "task_start_sha": null,
       "spec_review_sha": null,
