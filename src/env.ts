@@ -44,7 +44,10 @@ const envSchema = z.object({
 export function validateEnv(env: CloudflareBindings): ValidatedEnv {
   const parsed = envSchema.safeParse(env);
   if (!parsed.success) {
-    throw new AppError("internal", "Invalid or missing environment configuration.");
+    throw new AppError(
+      "internal",
+      "Invalid or missing environment configuration.",
+    );
   }
   const data = parsed.data;
 

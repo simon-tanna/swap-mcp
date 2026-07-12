@@ -37,7 +37,9 @@ describe("errors", () => {
     const envelope = toErrorEnvelope("invalid_input", "bad amount");
     expect(envelope).toEqual({
       content: [{ type: "text", text: expect.any(String) }],
-      structuredContent: { error: { code: "invalid_input", message: "bad amount" } },
+      structuredContent: {
+        error: { code: "invalid_input", message: "bad amount" },
+      },
       isError: true,
     });
 

@@ -26,7 +26,7 @@ function completeEnv(): CloudflareBindings {
 }
 
 describe("env", () => {
-  test('validateEnv fails closed on any missing secret or var', () => {
+  test("validateEnv fails closed on any missing secret or var", () => {
     expect(() => validateEnv(completeEnv())).not.toThrow();
 
     const required = [
@@ -63,7 +63,7 @@ describe("env", () => {
     expect(() => validateEnv(completeEnv())).not.toThrow();
   });
 
-  test('TRADING_API_BASE_URL host allowlist', () => {
+  test("TRADING_API_BASE_URL host allowlist", () => {
     const evil = completeEnv() as unknown as Record<string, unknown>;
     evil.TRADING_API_BASE_URL = "https://evil.example/v1";
     expect(() => validateEnv(evil as unknown as CloudflareBindings)).toThrow();
@@ -76,10 +76,9 @@ describe("env", () => {
     );
   });
 
-  test('TRADING_API_BASE_URL must be https (no http bypass)', () => {
+  test("TRADING_API_BASE_URL must be https (no http bypass)", () => {
     const plaintext = completeEnv() as unknown as Record<string, unknown>;
-    plaintext.TRADING_API_BASE_URL =
-      "http://trade-api.gateway.uniswap.org/v1";
+    plaintext.TRADING_API_BASE_URL = "http://trade-api.gateway.uniswap.org/v1";
     expect(() =>
       validateEnv(plaintext as unknown as CloudflareBindings),
     ).toThrow();
@@ -91,7 +90,7 @@ describe("env", () => {
     ).not.toThrow();
   });
 
-  test('TRADING_API_BASE_URL trailing-dot host fails closed', () => {
+  test("TRADING_API_BASE_URL trailing-dot host fails closed", () => {
     const trailingDot = completeEnv() as unknown as Record<string, unknown>;
     trailingDot.TRADING_API_BASE_URL =
       "https://trade-api.gateway.uniswap.org./v1";
@@ -100,7 +99,7 @@ describe("env", () => {
     ).toThrow();
   });
 
-  test('ALLOWED_ORIGINS filters out empty entries', () => {
+  test("ALLOWED_ORIGINS filters out empty entries", () => {
     const env = completeEnv() as unknown as Record<string, unknown>;
     env.ALLOWED_ORIGINS = "https://claude.ai, , https://x.com,";
     const validated = validateEnv(env as unknown as CloudflareBindings);
@@ -110,7 +109,7 @@ describe("env", () => {
     ]);
   });
 
-  test('secrets are accessor functions, never plain fields', () => {
+  test("secrets are accessor functions, never plain fields", () => {
     const validated = validateEnv(completeEnv());
 
     const serialized = JSON.stringify(validated);

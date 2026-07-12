@@ -5,7 +5,8 @@ export async function timingSafeEqualDigest(
   deps?: { digest?: (data: Uint8Array) => Promise<ArrayBuffer> },
 ): Promise<boolean> {
   const digest =
-    deps?.digest ?? ((data: Uint8Array) => crypto.subtle.digest("SHA-256", data));
+    deps?.digest ??
+    ((data: Uint8Array) => crypto.subtle.digest("SHA-256", data));
   const encoder = new TextEncoder();
   // Digest first so both operands are fixed 32-byte SHA-256 outputs: this keeps
   // timingSafeEqual's equal-length requirement satisfied (closing the length-leak

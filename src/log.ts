@@ -49,7 +49,9 @@ function redactRecord(
 }
 
 /** Recursively replace secret-name values with "[redacted]" and scrub long hex runs, arrays included. */
-export function redact(fields: Record<string, unknown>): Record<string, unknown> {
+export function redact(
+  fields: Record<string, unknown>,
+): Record<string, unknown> {
   if (!fields) return {};
   return redactRecord(fields, new WeakSet());
 }
@@ -60,7 +62,11 @@ export function log(
   fields: Record<string, unknown>,
 ): void {
   const method =
-    level === "error" ? console.error : level === "warn" ? console.warn : console.log;
+    level === "error"
+      ? console.error
+      : level === "warn"
+        ? console.warn
+        : console.log;
   let line: string;
   try {
     line = JSON.stringify({ level, ...redact(fields) });

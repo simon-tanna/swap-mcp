@@ -58,7 +58,9 @@ describe("log redaction", () => {
 
   test("log does not throw on BigInt fields and never emits the raw secret", () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(() => log("info", { amount: 10n, apiKey: "topsecret" })).not.toThrow();
+    expect(() =>
+      log("info", { amount: 10n, apiKey: "topsecret" }),
+    ).not.toThrow();
     const serialized = spy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(serialized).not.toContain("topsecret");
   });

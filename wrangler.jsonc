@@ -3,9 +3,7 @@
   "name": "swap-mcp",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-12",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   // Secret NAMES only (values set via `wrangler secret put <NAME>`, never committed).
   // `secrets.required` drives typed bindings and fail-closed validation on deploy.
   "secrets": {
@@ -13,28 +11,28 @@
       "SWAP_PRIVATE_KEY",
       "AUTH_PASSPHRASE",
       "UNISWAP_API_KEY",
-      "ETH_RPC_URL"
-    ]
+      "ETH_RPC_URL",
+    ],
   },
   "vars": {
     "CHAIN_ID": "1",
     "CANONICAL_MCP_URI": "https://swap-mcp.example.workers.dev/mcp",
     "TRADING_API_BASE_URL": "https://trade-api.gateway.uniswap.org/v1",
-    "ALLOWED_ORIGINS": "https://claude.ai,https://swap-mcp.example.workers.dev"
+    "ALLOWED_ORIGINS": "https://claude.ai,https://swap-mcp.example.workers.dev",
   },
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      "id": "<placeholder-kv-id>"
-    }
+      "id": "<placeholder-kv-id>",
+    },
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "swap-mcp",
       "database_id": "<placeholder-d1-id>",
-      "migrations_dir": "drizzle"
-    }
+      "migrations_dir": "drizzle",
+    },
   ],
   // "r2_buckets": [
   //   {

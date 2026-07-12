@@ -24,7 +24,7 @@ There is no lint, build, or test script configured.
 - **Entry point** is `src/index.ts`, which must `export default` the Hono `app` (Workers fetch handler). This path is set by `main` in `wrangler.jsonc`.
 - **Bindings** (KV, R2, D1, AI, vars, etc.) are declared in `wrangler.jsonc` — the file ships with commented-out examples for each. After adding a binding there, run `npm run cf-typegen` to regenerate the `CloudflareBindings` interface, then thread it through Hono as a generic so `c.env` is typed:
   ```ts
-  const app = new Hono<{ Bindings: CloudflareBindings }>()
+  const app = new Hono<{ Bindings: CloudflareBindings }>();
   ```
 - **Node APIs** are unavailable by default. To use them, uncomment `nodejs_compat` in `compatibility_flags` in `wrangler.jsonc`.
 - **`compatibility_date`** in `wrangler.jsonc` pins Workers runtime behavior — bump it deliberately, not casually.
