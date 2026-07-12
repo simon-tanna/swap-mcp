@@ -7,7 +7,6 @@ import type { QuoteResult } from "../../services/swapService";
 import type { SwapDirection } from "../../engine/tradingApiClient";
 import { guardedRoute } from "./guardedRoute";
 
-/** Mirrors the MCP `get_quote` input shape exactly. */
 const quoteInputSchema = z.object({
   direction: z.enum(["ETH_TO_USDC", "USDC_TO_ETH"]),
   amountIn: z.string(),

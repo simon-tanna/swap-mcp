@@ -47,7 +47,7 @@ export function createApiApp(
 }
 
 /**
- * Build the production `ApiDeps` from `env`, used by the T31 wiring layer.
+ * Build the production `ApiDeps` from `env`, used by the wiring layer.
  * Mirrors `SwapMcpAgent.init()` exactly: `service.getQuote` bound to the same
  * trading-API client, `coordinator.executeSwap` routed to the single-user
  * `SWAP_COORDINATOR` Durable Object by name, and `repo` built the same way.

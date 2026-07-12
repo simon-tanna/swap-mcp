@@ -9,8 +9,8 @@ import { env, SELF } from "cloudflare:test";
  * server performs — open DCR, `GET /authorize` (scrape the CSRF token from the
  * consent HTML), `POST /authorize` with the passphrase + allowed Origin (follow
  * the 302 to extract the code), then exchange the code at `/token`. It never
- * mints anything narrower than both scopes (decision 26: the consent flow
- * hardcodes the grant).
+ * mints anything narrower than both scopes: the consent flow hardcodes the
+ * grant.
  */
 export async function mintToken(): Promise<{
   accessToken: string;

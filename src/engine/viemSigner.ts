@@ -9,12 +9,11 @@ import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { AppError } from "../errors";
 
-/** Minimal ERC-20 fragment used to read token balances. */
 const ERC20_BALANCE_OF_ABI = parseAbi([
   "function balanceOf(address) view returns (uint256)",
 ]);
 
-/** Name viem gives the error thrown when `waitForTransactionReceipt` exceeds its timeout. */
+/** viem's error name when `waitForTransactionReceipt` times out. */
 const WAIT_TIMEOUT_ERROR_NAME = "WaitForTransactionReceiptTimeoutError";
 
 /** Disambiguated result of waiting for a receipt; only a genuine revert receipt yields "reverted". */
@@ -24,7 +23,6 @@ export type ReceiptOutcome =
   | { kind: "timeout" }
   | { kind: "unknown" };
 
-/** The subset of a viem public client this signer depends on. */
 export interface PublicClientLike {
   getBalance(args: { address: string }): Promise<bigint>;
   readContract(args: {
@@ -40,7 +38,6 @@ export interface PublicClientLike {
   }): Promise<{ status: string; gasUsed?: bigint }>;
 }
 
-/** The subset of a viem wallet client this signer depends on. */
 export interface WalletClientLike {
   sendTransaction(args: {
     account: unknown;
@@ -50,7 +47,6 @@ export interface WalletClientLike {
   }): Promise<string>;
 }
 
-/** A per-call pair of viem-like clients bound to a derived account. */
 export interface SignerClients {
   public: PublicClientLike;
   wallet: WalletClientLike;
@@ -70,7 +66,7 @@ export interface ViemSigner {
   getNativeBalance(addr: string): Promise<bigint>;
   /** Read an ERC-20 balance via `balanceOf` (e.g. 6-decimal USDC input source for USDC→ETH). */
   getErc20Balance(token: string, addr: string): Promise<bigint>;
-  /** Current max-fee-per-gas estimate (wei), consumed by the T17 gas-headroom rail. */
+  /** Current max-fee-per-gas estimate (wei), consumed by the gas-headroom rail. */
   estimateMaxFeePerGas(): Promise<bigint>;
   /** Sign with the call-time-derived account and submit, returning the tx hash. */
   sendTransaction(tx: {
@@ -78,7 +74,6 @@ export interface ViemSigner {
     data: string;
     value: string;
   }): Promise<string>;
-  /** Wait for the receipt and disambiguate into success/reverted/timeout/unknown. */
   waitForReceipt(hash: string, timeoutMs: number): Promise<ReceiptOutcome>;
 }
 
@@ -102,7 +97,6 @@ export function createViemSigner(deps: {
 }): ViemSigner {
   const factory = deps.clientFactory ?? defaultClientFactory;
 
-  // Derive the account once to expose a non-secret address; the raw key is not retained.
   const address = privateKeyToAccount(
     deps.getPrivateKey() as `0x${string}`,
   ).address;
@@ -163,7 +157,7 @@ export function createViemSigner(deps: {
         if (receipt.status === "success") {
           // A genuine success receipt always carries gasUsed; a missing/non-bigint value
           // signals a malformed receipt and collapses to the conservative unknown outcome
-          // rather than fabricating a zero-gas success into T17's gas rail.
+          // rather than fabricating a zero-gas success into the gas rail.
           if (typeof receipt.gasUsed !== "bigint") {
             return { kind: "unknown" };
           }

@@ -15,7 +15,7 @@ import { createApiApp, type ApiDeps } from "../../src/api/apiApp";
 import { call, connectServer, errorOf } from "./helpers/mcpHarness";
 
 /**
- * The app-owned scope seam (decision 26): the production consent flow always
+ * The app-owned scope seam: the production consent flow always
  * grants BOTH `["swap:read","swap:write"]`, so no narrower bearer is mintable —
  * a read-only token cannot be forged end-to-end. Write-path rejection is instead
  * proven where the app itself owns the boundary: the real `execute_swap`

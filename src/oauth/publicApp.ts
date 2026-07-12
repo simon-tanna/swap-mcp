@@ -43,9 +43,9 @@ type PublicEnv = CloudflareBindings & { OAUTH_PROVIDER: OAuthProviderHelpers };
 export const compareDeps = { timingSafeEqualDigest };
 
 /**
- * Scopes granted on consent — hardcoded by design (spec §5.6, interview
- * decision 26) and NEVER derived from the client's requested scope, so a
- * client cannot request its way into a wider grant.
+ * Scopes granted on consent — hardcoded by design and NEVER derived from the
+ * client's requested scope, so a client cannot request its way into a wider
+ * grant.
  */
 const GRANTED_SCOPES = ["swap:read", "swap:write"] as const;
 
@@ -112,13 +112,13 @@ function renderConsentPage(opts: {
 // publicApp is the OAuthProvider's PUBLIC (unauthenticated) handler.
 // `/healthz` must be a CONSTANT response — it must never read env/bindings or
 // branch on their presence, so it can't become an oracle that leaks whether a
-// binding/secret is configured (spec §5.13, G1). Other routes here (e.g.
+// binding/secret is configured. Other routes here (e.g.
 // `/authorize`) may read env.
 export const publicApp = new Hono<{ Bindings: PublicEnv }>();
 
 publicApp.get("/healthz", (c) => c.json({ status: "ok" }));
 
-// §5.6b/§5.6/M12: render the consent screen. Strictly validate the redirect_uri
+// Render the consent screen. Strictly validate the redirect_uri
 // against the registered client and the resource against CANONICAL_MCP_URI
 // BEFORE rendering, then issue a single-use CSRF token bound to the request and
 // embed it as a hidden field. The client name and exact redirect_uri are shown
@@ -161,7 +161,7 @@ publicApp.get("/authorize", async (c) => {
   );
 });
 
-// §5.6: consent submission. A STRICT ordered gate chain — each gate exists to
+// Consent submission. A STRICT ordered gate chain — each gate exists to
 // stop later, more expensive/leaky work from ever running on a bad request:
 // 1. Origin/Referer presence  2. Origin allowlist  3. parse AuthRequest
 // 4. CSRF verify+consume      5. resource check    6. rate limiter

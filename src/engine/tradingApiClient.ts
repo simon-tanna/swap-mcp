@@ -18,13 +18,11 @@ class UpstreamError extends Error {
     this.name = "UpstreamError";
     this.status = status;
   }
-  /** Retryable iff the gateway signalled rate-limiting (429) or a 5xx fault. */
   get retryable(): boolean {
     return this.status === 429 || this.status >= 500;
   }
 }
 
-/** Swap direction between native ETH and USDC on Ethereum mainnet. */
 export type SwapDirection = "ETH_TO_USDC" | "USDC_TO_ETH";
 
 /** Inputs for a `/quote` request; token addresses are derived from `direction`. */
@@ -81,7 +79,6 @@ const checkApprovalSchema = z.object({
   approval: z.union([z.looseObject({}), z.null()]),
 });
 
-/** CLASSIC-family `/quote` response — the only routing this client accepts. */
 export type ClassicQuoteResponse = z.infer<typeof classicQuoteSchema>;
 
 /** The ready-to-sign swap transaction unwrapped from the `/swap` `{ swap }` envelope. */
@@ -93,7 +90,6 @@ export type SwapTx = {
   gasLimit: string;
 };
 
-/** Client for the Uniswap Trading API check_approval → quote → swap flow. */
 export interface TradingApiClient {
   checkApproval(i: {
     token: string;
@@ -104,7 +100,6 @@ export interface TradingApiClient {
   buildSwap(q: ClassicQuoteResponse): Promise<SwapTx>;
 }
 
-/** Routing families whose response carries a `quote.output.amount`. */
 const CLASSIC_FAMILY = new Set<string>(CLASSIC_ROUTINGS);
 
 /** Assert a quote is CLASSIC-family; anything else (e.g. UniswapX) fails closed. */
@@ -122,7 +117,6 @@ export function readQuotedOutput(q: ClassicQuoteResponse): string {
   return q.quote.output.amount;
 }
 
-/** Resolve the `tokenIn`/`tokenOut` pair for a direction, using the ETH sentinel. */
 function tokensFor(direction: SwapDirection): {
   tokenIn: string;
   tokenOut: string;
@@ -132,16 +126,15 @@ function tokensFor(direction: SwapDirection): {
     : { tokenIn: USDC_ADDRESS, tokenOut: NATIVE_ETH_SENTINEL };
 }
 
-/** Per-Trading-API-call timeout: a slower call maps to `upstream_unavailable` (spec §5.9). */
+/** Per-Trading-API-call timeout: a slower call maps to `upstream_unavailable`. */
 const CALL_TIMEOUT_MS = 8000;
 
-/** Backoff bases before retry 1 and retry 2; length also caps retries at 2 (spec §5.9). */
+/** Backoff bases before retry 1 and retry 2; length also caps retries at 2. */
 const RETRY_BASE_MS = [250, 500] as const;
 
 /** A distinct sentinel used to win the timeout race against a hung `fetch`. */
 const TIMEOUT = Symbol("trading-api-timeout");
 
-/** Construct a Trading API client bound to a base URL and API-key accessor. */
 export function createTradingApiClient(deps: {
   baseUrl: string;
   getApiKey: () => string;
@@ -216,7 +209,7 @@ export function createTradingApiClient(deps: {
   /**
    * Issue a Trading API POST with the 8s timeout and, for idempotent calls only,
    * up to 2 jittered backoff retries on 429/5xx. `/swap` and any submitted tx are
-   * never retried, eliminating double-submission on the money path (spec §5.9).
+   * never retried, eliminating double-submission on the money path.
    */
   async function requestWithPolicy(
     path: string,

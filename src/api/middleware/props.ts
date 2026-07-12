@@ -10,14 +10,13 @@ import { classify, CURATED_MESSAGE, type ErrorCode } from "../../errors";
  */
 export type RestErrorBody = { error: { code: ErrorCode; message: string } };
 
-/** Build the REST error body for an allowlisted code using the shared curated message. */
 function toRestErrorBody(code: ErrorCode): RestErrorBody {
   return { error: { code, message: CURATED_MESSAGE[code] } };
 }
 
 /**
  * Total map from every allowlisted {@link ErrorCode} to its HTTP status.
- * Typed as `Record<ErrorCode, number>` so omitting a code is a compile error (G10).
+ * Typed as `Record<ErrorCode, number>` so omitting a code is a compile error.
  */
 const ERROR_CODE_TO_HTTP_STATUS: Record<ErrorCode, number> = {
   invalid_input: 400,
@@ -33,19 +32,17 @@ const ERROR_CODE_TO_HTTP_STATUS: Record<ErrorCode, number> = {
   internal: 500,
 };
 
-/** Map an allowlisted error code to its HTTP status. Total over {@link ErrorCode}. */
 export function errorCodeToHttpStatus(code: ErrorCode): number {
   return ERROR_CODE_TO_HTTP_STATUS[code];
 }
 
-/** Classify a thrown value and respond with the mapped HTTP status and REST error body. */
 export function errorResponse(c: Context, err: unknown): Response {
   const code = classify(err);
   return c.json(toRestErrorBody(code), errorCodeToHttpStatus(code) as 200);
 }
 
 /**
- * The single REST identity thread-point (M9): Cloudflare Workers-OAuth-provider
+ * The single REST identity thread-point: Cloudflare Workers-OAuth-provider
  * places the authenticated identity on `c.executionCtx.props`. This middleware
  * copies it to `c.set("props", props)` so every downstream REST route reads
  * identity from exactly one place — `c.get("props")` — and never touches

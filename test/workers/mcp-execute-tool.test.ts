@@ -209,7 +209,7 @@ describe("MCP execute_swap tool", () => {
       "The wallet balance is insufficient for this swap.",
     );
 
-    // Major-5 leak channel: a non-AppError carrying a fake rpc url + hex key
+    // Secret-leak channel: a non-AppError carrying a fake rpc url + hex key
     // must classify to "internal" and the curated message must replace the raw
     // text — neither the rpc url nor the long hex run may appear in the envelope.
     const rpcUrl = "https://secret-rpc.example.com/v3/deadbeef";

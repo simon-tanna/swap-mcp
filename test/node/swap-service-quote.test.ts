@@ -182,7 +182,7 @@ describe("swapService.getQuote", () => {
   });
 });
 
-/** Mirror of the direction→pair mapping used to pin §7 G5 in this test. */
+/** Mirror of the direction→pair mapping this test pins. */
 function tokensForDirection(direction: "ETH_TO_USDC" | "USDC_TO_ETH"): {
   tokenIn: string;
   tokenOut: string;

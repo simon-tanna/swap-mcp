@@ -7,7 +7,7 @@ import {
 } from "drizzle-zod";
 import { z } from "zod";
 
-/** Persisted lifecycle record for a single swap request (see spec §5.11). */
+/** Persisted lifecycle record for a single swap request. */
 export const swaps = sqliteTable(
   "swaps",
   {

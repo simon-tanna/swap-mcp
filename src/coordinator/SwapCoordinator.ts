@@ -17,8 +17,8 @@ import {
  * Build the default engine deps from `env`, storing only accessor closures — the
  * raw private key/rpc-url are never fields on the returned deps or the DO
  * instance, so a `JSON.stringify` snapshot exposes no key material (mirrors the
- * T15 signer design). Clients are per-request by construction (T15 factory), so
- * building them once per DO instance preserves that isolation guarantee.
+ * signer design). Clients are per-request by construction, so building them once
+ * per DO instance preserves that isolation guarantee.
  */
 function createDefaultDeps(env: CloudflareBindings): SwapServiceDeps {
   const v = validateEnv(env);
@@ -37,8 +37,8 @@ function createDefaultDeps(env: CloudflareBindings): SwapServiceDeps {
 }
 
 /**
- * Durable Object coordinating a single swap's lifecycle: it delegates to the
- * T17 `executeSwap`, whose eager D1 writes advance the row pending→submitted→
+ * Durable Object coordinating a single swap's lifecycle: it delegates to
+ * `executeSwap`, whose eager D1 writes advance the row pending→submitted→
  * confirmed/failed before the RPC returns.
  */
 export class SwapCoordinator extends DurableObject<CloudflareBindings> {
@@ -60,7 +60,7 @@ export class SwapCoordinator extends DurableObject<CloudflareBindings> {
 
   /**
    * Engine deps for `executeSwap`. Lazily built from `this.env` on first read
-   * (per-request clients via the T15 factory) and injectable in tests by
+   * (per-request clients via the factory) and injectable in tests by
    * assigning fakes; the getter never stores raw key material as a field.
    */
   get deps(): SwapServiceDeps {
@@ -73,10 +73,10 @@ export class SwapCoordinator extends DurableObject<CloudflareBindings> {
 
   /**
    * Execute one swap end-to-end and return its terminal result. Delegates to the
-   * T17 service (which owns the eager D1 lifecycle writes) and emits a single
+   * swap service (which owns the eager D1 lifecycle writes) and emits a single
    * structured observability log.
    *
-   * Major-5 safe logging: the log carries ONLY allowlisted, non-secret fields
+   * Safe logging: the log carries ONLY allowlisted, non-secret fields
    * from the returned `SwapResult` plus the input direction — never the raw
    * error, `err.message`, or any secret-accessor return. Redaction lives here on
    * the coordinator's own branch rather than relying on caller convention,

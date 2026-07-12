@@ -6,7 +6,7 @@ export const USDC_ADDRESS =
 export const WETH9_ADDRESS =
   "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as const;
 
-/** Uniswap Universal Router mainnet address (pinned lowercase per spec). */
+/** Uniswap Universal Router mainnet address (pinned lowercase). */
 export const UNIVERSAL_ROUTER_ADDRESS =
   "0x66a9893cc07d91d95644aedd05d03f95e1dba8af" as const;
 

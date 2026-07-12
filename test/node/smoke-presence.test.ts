@@ -9,8 +9,8 @@ const repoRoot = join(here, "..", "..");
 
 /**
  * Guards the manual smoke script's two structural invariants: it exists with a
- * documented manual-only banner (§7 G11), and nothing in the automated suite can
- * import or match it, so `pnpm test` stays at zero real network (§7 G11).
+ * documented manual-only banner, and nothing in the automated suite can import
+ * or match it, so `pnpm test` stays at zero real network.
  */
 describe("manual smoke script", () => {
   it("smoke script exists and is excluded from the automated suite", () => {

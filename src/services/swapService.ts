@@ -13,18 +13,16 @@ import { checkDrift, resolveSwapParams, type ExecuteSwapInput } from "./rails";
 /**
  * Read-path quotes are swapper-agnostic (a price quote does not bind funds), so
  * we pass the zero address here as a documented placeholder. The real swapper
- * binds at execute time (T17), where the signer's address is available.
+ * binds at execute time, where the signer's address is available.
  */
 const QUOTE_PLACEHOLDER_SWAPPER =
   "0x0000000000000000000000000000000000000000" as const;
 
-/** Default slippage tolerance applied when the caller supplies none. */
 const DEFAULT_SLIPPAGE_TOLERANCE_PCT = 0.5;
 
 /** Freshness window for a quote; the Trading API has no expiry field, so we hint one. */
 const QUOTE_FRESHNESS_MS = 30_000;
 
-/** Fixed token decimals for the ETH↔USDC pair, used for decimal-adjusted price math. */
 const ETH_DECIMALS = 18;
 const USDC_DECIMALS = 6;
 
@@ -51,7 +49,6 @@ export type QuoteResult = {
   freshUntil: number;
 };
 
-/** Resolve the (inDecimals, outDecimals) for a direction over the fixed ETH↔USDC pair. */
 function decimalsFor(direction: SwapDirection): {
   in: number;
   out: number;
@@ -324,7 +321,7 @@ export async function executeSwap(
   }
 
   // Post-broadcast region: the tx is live. A bookkeeping write throwing here
-  // must NEVER mark the row failed (M3) — the outcome is undetermined, so the
+  // must NEVER mark the row failed — the outcome is undetermined, so the
   // catch falls through to the submitted/timed_out result.
   try {
     await repo.markSubmitted(transactionId, txHash);
@@ -351,7 +348,6 @@ export async function executeSwap(
       };
     }
     if (outcome.kind === "reverted") {
-      // Post-submit failure: keep the hash on the failed row.
       await repo.markFailed(transactionId, "swap_failed", { txHash });
       return {
         transactionId,
@@ -363,7 +359,7 @@ export async function executeSwap(
       };
     }
     // timeout/unknown: the swap may still have succeeded, so the row stays
-    // `submitted` — never write `failed` for an undetermined outcome (M3).
+    // `submitted` — never write `failed` for an undetermined outcome.
     return {
       transactionId,
       status: "submitted",
@@ -374,7 +370,7 @@ export async function executeSwap(
   } catch {
     // A post-broadcast bookkeeping write (markSubmitted/markConfirmed) threw for
     // a live tx of undetermined outcome: leave the row as-is and report
-    // submitted/timed_out rather than fabricating a `failed` state (M3).
+    // submitted/timed_out rather than fabricating a `failed` state.
     return {
       transactionId,
       status: "submitted",

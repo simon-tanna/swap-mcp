@@ -19,7 +19,7 @@ export interface ValidatedEnv {
   getEthRpcUrl(): string;
 }
 
-/** True when `value` is an https URL whose host is exactly the trading-API allowlisted host. */
+/** True when `value` is an https URL whose host is exactly the Uniswap Trading API host. */
 function isAllowlistedTradingUrl(value: string): boolean {
   try {
     const url = new URL(value);

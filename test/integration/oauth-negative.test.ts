@@ -20,11 +20,11 @@ import { firstAllowedOrigin, mintToken } from "../helpers/mintToken";
 
 /**
  * Integration NEGATIVE paths for the wired worker (`src/index.ts` default
- * export) driven through `SELF` (the real `main` binding = the OAuthProvider)
- * and, for the mid-swap G9 half, through the real `SWAP_COORDINATOR` Durable
- * Object with a parked fake signer. No token is ever forged: decision 26 means
- * the production consent flow always grants BOTH scopes, so read-only write-path
- * rejection is proven separately at the app-owned seam (scope-seam.test.ts).
+ * export) driven through `SELF` (the real `main` binding = the OAuthProvider),
+ * and for the mid-swap half through the real `SWAP_COORDINATOR` Durable Object
+ * with a parked fake signer. The production consent flow always grants BOTH
+ * scopes, so read-only write-path rejection is proven separately at the
+ * app-owned seam (scope-seam.test.ts).
  */
 
 /** A supported MCP protocol version the streamable-HTTP transport accepts. */
@@ -382,7 +382,7 @@ describe("OAuthProvider integration negative paths", () => {
     expect(bodyText).not.toContain("rpc.example");
   });
 
-  test("G9 REST mid-swap visibility shows submitted before the swap resolves", async () => {
+  test("REST mid-swap visibility shows submitted before the swap resolves", async () => {
     const { accessToken } = await mintToken();
     const parkedHash =
       "0xdeadbeef00000000000000000000000000000000000000000000000000000000";

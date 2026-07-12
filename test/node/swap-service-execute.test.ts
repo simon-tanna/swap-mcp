@@ -474,7 +474,7 @@ describe("swapService.executeSwap", () => {
   });
 
   test("markConfirmed throwing after a broadcast never marks the row failed", async () => {
-    // A live tx of undetermined outcome must never be reported failed (M3):
+    // A live tx of undetermined outcome must never be reported failed:
     // a bookkeeping write throwing post-broadcast falls through to submitted.
     const h = makeHarness({
       receipt: { kind: "success", gasUsed: 21000n },

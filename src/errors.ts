@@ -15,7 +15,6 @@ export const ERROR_CODES = [
   "internal",
 ] as const;
 
-/** A single member of the closed error-code allowlist. */
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 /** The MCP tool-result error envelope: text content plus structured error and the error flag. */

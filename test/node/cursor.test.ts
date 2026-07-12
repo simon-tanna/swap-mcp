@@ -21,8 +21,7 @@ describe("cursor", () => {
       id: "3f3b9b3a-9c3e-4b6a-9e9a-6b0a3e9c3e4b",
     });
 
-    // Flip the last character of the encoded id region so the decoded
-    // payload's `id` no longer parses as a valid UUID under strict schema.
+    // Flip the last encoded char so the decoded `id` fails strict UUID validation.
     const tampered =
       encoded.slice(0, -1) + (encoded.at(-1) === "A" ? "B" : "A");
 

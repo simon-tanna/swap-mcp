@@ -19,7 +19,6 @@ export type ResolvedSwapParams = {
   expectedAmountOut?: string;
 };
 
-/** Apply defaults (slippage 0.5, deadline 1200) and validate; throws AppError("invalid_input") on any violation. */
 export function resolveSwapParams(input: ExecuteSwapInput): ResolvedSwapParams {
   const slippageTolerancePct = input.slippageTolerancePct ?? 0.5;
   if (
@@ -58,7 +57,7 @@ export function pctToFraction(pct: number): number {
   return pct / 100;
 }
 
-/** Convert a percent to integer basis points (0.5 → 50n), collapsing the float to a bigint immediately. */
+/** Convert a percent to integer basis points (0.5 → 50n). */
 export function pctToBps(pct: number): bigint {
   return BigInt(Math.round(pct * 100));
 }
@@ -68,7 +67,7 @@ export function pctToBps(pct: number): bigint {
  *
  * When expectedAmountOut is undefined the branch NEVER aborts: the Trading-API-embedded
  * slippage floor is the only rail in that case, so applying a second local floor here would
- * double-count slippage (the v2 double-count bug). Otherwise the floor is computed purely in
+ * double-count slippage. Otherwise the floor is computed purely in
  * bigint from integer basis points — no float touches the amount arithmetic.
  */
 export function checkDrift(

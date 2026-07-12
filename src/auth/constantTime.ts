@@ -1,4 +1,4 @@
-/** Constant-time passphrase compare via SHA-256 digests (spec §7 G2 / M10). */
+/** Constant-time passphrase compare via SHA-256 digests. */
 export async function timingSafeEqualDigest(
   a: string,
   b: string,

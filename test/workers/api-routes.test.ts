@@ -156,7 +156,7 @@ describe("REST API routes", () => {
       expectedAmountOut,
     };
 
-    // Read-only scope must be rejected BEFORE the coordinator is ever called.
+    // The scope gate must reject before the coordinator (any side-effect) runs.
     const forbidden = await app.request(
       "/api/swap",
       {

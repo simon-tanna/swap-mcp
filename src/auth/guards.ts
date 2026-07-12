@@ -1,6 +1,6 @@
 import { AppError } from "../errors";
 
-/** Auth context carried by MCP `this.props` and REST middleware. */
+/** The authenticated grant: user id, granted scopes, and token audience. */
 export type AuthProps = { userId: string; scopes: string[]; resource: string };
 
 /** Stable id of the single DB user; multi-user is a non-goal. */

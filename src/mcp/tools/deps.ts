@@ -7,7 +7,7 @@ import type { TransactionsRepository } from "../../repository/transactions";
 /**
  * Everything the read/execute tool registrars need, injected so the tools stay
  * pure and unit-testable. `coordinator` is carried even though the read tools
- * never touch it — the execute tool (T23) does, and pinning the shape now keeps
+ * never touch it — the execute tool does, and pinning the shape now keeps
  * `ToolDeps` stable across the whole tool suite.
  */
 export type ToolDeps = {

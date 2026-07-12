@@ -1,13 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
 
-/** Fixed tumbling window length in seconds (10 minutes). */
 const WINDOW_SECONDS = 600;
-/** Per-IP failure budget within one window. */
 const PER_IP_BUDGET = 5;
-/** Global failure budget across all IPs within one window. */
 const GLOBAL_BUDGET = 20;
 
-/** A single window's counter: its fixed start (ms) and consumed reservations. */
 interface WindowState {
   windowStart: number;
   count: number;
@@ -37,7 +33,7 @@ function readWindow(
  * concurrent calls read the same pre-increment count and leak the ceiling.
  *
  * Bounded key space: this is a single, unsharded global instance whose `ip:`
- * keys are keyed by the caller-supplied `ip` — in the real consent flow (T30)
+ * keys are keyed by the caller-supplied `ip` — in the real consent flow
  * that is `CF-Connecting-IP`, populated by the Cloudflare edge and not
  * client-spoofable — so the realistic key space is bounded by genuine source
  * IPs, not attacker-controlled input. Lazy expiry (no alarms) is a deliberate

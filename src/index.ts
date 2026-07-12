@@ -10,12 +10,12 @@ import { SwapMcpAgent } from "./mcp/SwapMcpAgent";
 import { publicApp } from "./oauth/publicApp";
 import { RateLimiter } from "./ratelimit/RateLimiter";
 
-/** The streamable-HTTP MCP handler the OAuthProvider guards and dispatches to. */
+/** The MCP transport the OAuthProvider guards and dispatches to. */
 const mcpTransport = SwapMcpAgent.serve("/mcp", { binding: "SwapMcpAgent" });
 
 /**
  * Per-request adapter for the `/mcp` surface. Runs {@link transportGuard} BEFORE
- * dispatching to the MCP transport (Major 4, §5.5(a)): the Origin allowlist and
+ * dispatching to the MCP transport: the Origin allowlist and
  * the required `MCP-Protocol-Version` header are enforced on the `/mcp` path
  * before any tool is reached. A guard failure is mapped to the same curated,
  * non-leaking `{ error: { code, message } }` body and HTTP status the REST
@@ -67,7 +67,7 @@ const apiApp = {
  * public request (consent + `/healthz`) to `publicApp`.
  *
  * - `/mcp` is served by `SwapMcpAgent.serve("/mcp", { binding: "SwapMcpAgent" })`.
- *   Per M8 the default assumption is no binding arg, but the installed
+ *   The default assumption is no binding arg, but the installed
  *   `agents@0.17` `serve(path, options?)` defaults `binding` to `"MCP_OBJECT"` —
  *   a name we do not declare — and looks the Durable Object up by that binding
  *   name at request time (not by class name). So the binding MUST be named

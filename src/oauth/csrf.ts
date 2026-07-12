@@ -14,7 +14,6 @@ export interface AuthRequestLike {
   resource?: string | string[];
 }
 
-/** KV key namespace for stored CSRF nonces, so they can't collide with other keys. */
 const CSRF_KEY_PREFIX = "csrf:";
 
 /** Short lifetime (seconds) of a consent CSRF token — long enough to fill a form, no longer. */
@@ -34,7 +33,7 @@ function canonicalize(authRequest: AuthRequestLike): string {
   });
 }
 
-/** SHA-256 hex digest of the canonicalized AuthRequest subset. */
+/** SHA-256 hash of the canonicalized AuthRequest. */
 async function hashAuthRequest(authRequest: AuthRequestLike): Promise<string> {
   const bytes = new TextEncoder().encode(canonicalize(authRequest));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
