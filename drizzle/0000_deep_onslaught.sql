@@ -1,0 +1,20 @@
+CREATE TABLE `swaps` (
+	`id` text PRIMARY KEY NOT NULL,
+	`userId` text NOT NULL,
+	`direction` text NOT NULL,
+	`amountIn` text NOT NULL,
+	`expectedAmountOut` text,
+	`quotedAmountOut` text NOT NULL,
+	`actualAmountOut` text,
+	`slippageTolerancePct` text NOT NULL,
+	`deadlineSeconds` integer NOT NULL,
+	`txHash` text,
+	`status` text NOT NULL,
+	`errorCode` text,
+	`gasUsed` text,
+	`createdAt` integer NOT NULL,
+	`submittedAt` integer,
+	`settledAt` integer,
+	CONSTRAINT "direction_check" CHECK("swaps"."direction" IN ('ETH_TO_USDC','USDC_TO_ETH')),
+	CONSTRAINT "status_check" CHECK("swaps"."status" IN ('pending','submitted','confirmed','failed'))
+);
