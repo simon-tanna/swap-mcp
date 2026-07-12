@@ -81,6 +81,17 @@ describe("transactions repository", () => {
     expect(row!.txHash).toBeNull();
   });
 
+  test("markFailed without opts preserves a previously recorded txHash (post-submit failure)", async () => {
+    const id = await repo.insertPending(newInput());
+    await repo.markSubmitted(id, "0xhash...");
+    await repo.markFailed(id, "swap_failed");
+
+    const row = await db.query.swaps.findFirst({ where: eq(swaps.id, id) });
+    expect(row!.status).toBe("failed");
+    expect(row!.errorCode).toBe("swap_failed");
+    expect(row!.txHash).toBe("0xhash...");
+  });
+
   test("findById returns the live row", async () => {
     const id = await repo.insertPending(newInput());
 

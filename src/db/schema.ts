@@ -56,7 +56,10 @@ export const SWAP_DIRECTION = z.enum(["ETH_TO_USDC", "USDC_TO_ETH"]);
 export type SwapDirection = z.infer<typeof SWAP_DIRECTION>;
 
 /** Zod schema for a fully-materialized swap row as read back from the database. */
-export const swapSelectSchema = createSelectSchema(swaps);
+export const swapSelectSchema = createSelectSchema(swaps, {
+  status: SWAP_STATUS,
+  direction: SWAP_DIRECTION,
+});
 
 /** Zod schema for inserting a new swap row. */
 export const swapInsertSchema = createInsertSchema(swaps, {

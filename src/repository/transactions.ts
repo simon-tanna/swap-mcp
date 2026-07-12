@@ -38,7 +38,7 @@ export interface TransactionsRepository {
     id: string,
     r: { actualAmountOut: string; gasUsed: string },
   ): Promise<void>;
-  /** Transition a row to `failed` with an error code; records `txHash` only when the swap reached the chain (omit it for pre-submit aborts, which clears it). */
+  /** Transition a row to `failed` with an error code; records `txHash` only when explicitly provided, otherwise leaves the existing value unchanged (so a pre-submit abort stays null and a post-submit failure keeps its recorded hash). */
   markFailed(
     id: string,
     errorCode: ErrorCode,
@@ -75,13 +75,8 @@ export function createTransactionsRepository(
       const [inserted] = await db
         .insert(swaps)
         .values({
-          userId: row.userId,
-          direction: row.direction,
-          amountIn: row.amountIn,
+          ...row,
           expectedAmountOut: row.expectedAmountOut ?? null,
-          quotedAmountOut: row.quotedAmountOut,
-          slippageTolerancePct: row.slippageTolerancePct,
-          deadlineSeconds: row.deadlineSeconds,
           status: "pending",
           createdAt: Date.now(),
         })
@@ -109,15 +104,13 @@ export function createTransactionsRepository(
     },
 
     async markFailed(id, errorCode, opts) {
-      await db
-        .update(swaps)
-        .set({
-          status: "failed",
-          errorCode,
-          txHash: opts?.txHash ?? null,
-          settledAt: Date.now(),
-        })
-        .where(eq(swaps.id, id));
+      const set: Partial<NewSwapRow> = {
+        status: "failed",
+        errorCode,
+        settledAt: Date.now(),
+      };
+      if (opts?.txHash !== undefined) set.txHash = opts.txHash;
+      await db.update(swaps).set(set).where(eq(swaps.id, id));
     },
 
     async findById(id) {
