@@ -68,11 +68,11 @@
       "deps": [
         "T3"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "8c53cba098528c15754ad436d90650acdac22e65",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "020dcab96dac248ed85c4730fc32c1f7f64bcb58",
+      "quality_review_sha": "8c53cba098528c15754ad436d90650acdac22e65",
       "blocker_count": 0
     },
     {
