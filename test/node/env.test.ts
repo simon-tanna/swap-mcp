@@ -19,7 +19,7 @@ function completeEnv(): CloudflareBindings {
     UNISWAP_API_KEY,
     ETH_RPC_URL,
     CHAIN_ID: "1",
-    CANONICAL_MCP_URI: "https://swap-mcp.example.workers.dev/mcp",
+    CANONICAL_MCP_URI: "https://swap-mcp.example.workers.dev",
     TRADING_API_BASE_URL: "https://trade-api.gateway.uniswap.org/v1",
     ALLOWED_ORIGINS: "https://claude.ai,https://swap-mcp.example.workers.dev",
   } as unknown as CloudflareBindings;

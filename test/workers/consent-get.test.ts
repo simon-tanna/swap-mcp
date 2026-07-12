@@ -8,7 +8,7 @@ import {
 } from "../../src/oauth/csrf";
 import { publicApp } from "../../src/oauth/publicApp";
 
-const CANONICAL = "https://swap-mcp.example.workers.dev/mcp";
+const CANONICAL = "https://swap-mcp.example.workers.dev";
 const REDIRECT_URI = "https://client.example/callback";
 const CLIENT_NAME = "Example <Trading> Client";
 

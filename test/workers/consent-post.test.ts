@@ -12,7 +12,7 @@ import {
 import { compareDeps, publicApp } from "../../src/oauth/publicApp";
 
 /** Must equal `vars.CANONICAL_MCP_URI` in wrangler.jsonc (what validateEnv sees). */
-const CANONICAL = "https://swap-mcp.example.workers.dev/mcp";
+const CANONICAL = "https://swap-mcp.example.workers.dev";
 const REDIRECT_URI = "https://client.example/callback";
 /** First entry of `vars.ALLOWED_ORIGINS` in wrangler.jsonc. */
 const ALLOWED_ORIGIN = "https://claude.ai";

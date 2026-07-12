@@ -16,7 +16,12 @@
   },
   "vars": {
     "CHAIN_ID": "1",
-    "CANONICAL_MCP_URI": "https://swap-mcp.example.workers.dev/mcp",
+    // Origin-only canonical resource (no `/mcp` path): the OAuth `resource`
+    // param / token audience. Origin-only so ONE operator token authorizes both
+    // the `/mcp` and `/api/*` surfaces — the provider's `audienceMatches` accepts
+    // any path under an origin-only ("/") audience (spec G2). A path-scoped value
+    // (`.../mcp`) would make the audience gate reject `/api/*` requests.
+    "CANONICAL_MCP_URI": "https://swap-mcp.example.workers.dev",
     "TRADING_API_BASE_URL": "https://trade-api.gateway.uniswap.org/v1",
     "ALLOWED_ORIGINS": "https://claude.ai,https://swap-mcp.example.workers.dev",
   },
