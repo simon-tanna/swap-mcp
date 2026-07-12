@@ -393,9 +393,9 @@
         "T18",
         "T20"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "7c8f281b242730d4434570d76551204712fde518",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
