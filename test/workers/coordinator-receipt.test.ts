@@ -6,95 +6,25 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import * as schema from "../../src/db/schema";
 import { swaps } from "../../src/db/schema";
 import type { SwapCoordinator } from "../../src/coordinator/SwapCoordinator";
-import type {
-  ClassicQuoteResponse,
-  SwapDirection,
-  SwapTx,
-  TradingApiClient,
-} from "../../src/engine/tradingApiClient";
-import type { ReceiptOutcome, ViemSigner } from "../../src/engine/viemSigner";
 import { createTransactionsRepository } from "../../src/repository/transactions";
+import {
+  ethToUsdcInput,
+  fakeSigner,
+  makeDeps as makeDepsWithRepo,
+  TX_HASH,
+} from "./helpers/coordinatorFakes";
+import type { ViemSigner } from "../../src/engine/viemSigner";
 import type { SwapServiceDeps } from "../../src/services/swapService";
-import { quoteClassic, swapNested } from "../fixtures/tradingApi";
 
 const db = drizzle(env.DB, { schema });
 const repo = createTransactionsRepository(db);
 
-/** Pinned signer address for the fake signer, distinct from the quote fixtures' swapper. */
-const SIGNER_ADDRESS = "0x3333333333333333333333333333333333333333";
-/** A plausible broadcast tx hash returned by the fake signer's sendTransaction. */
-const TX_HASH =
-  "0x4ca7ee652d57678f26e887c149ab0735f41de37bcad58c9f6d3ed5824f15b74d";
 /** The rails default deadline (seconds); asserted as the receipt-wait bound. See src/services/rails.ts. */
 const DEFAULT_DEADLINE_SECONDS = 1200;
 
-/** Happy-path ETH→USDC input; native input needs no approval gate. */
-function ethToUsdcInput(): {
-  direction: SwapDirection;
-  amountIn: string;
-  userId: string;
-} {
-  return {
-    direction: "ETH_TO_USDC",
-    amountIn: "1000000000000000000",
-    userId: "user-1",
-  };
-}
-
-/** A fake TradingApiClient serving the CLASSIC quote/swap fixtures; approval is never required. */
-function fakeTradingApi(): TradingApiClient {
-  return {
-    async checkApproval() {
-      return { approval: null };
-    },
-    async getQuote() {
-      return quoteClassic as unknown as ClassicQuoteResponse;
-    },
-    async buildSwap() {
-      return { ...swapNested.swap } as SwapTx;
-    },
-  };
-}
-
-/** Overridable hooks for the fake signer; `waitForReceipt` receives (hash, timeoutMs). */
-type FakeSignerOpts = {
-  sendTransaction?: (tx: {
-    to: string;
-    data: string;
-    value: string;
-  }) => Promise<string>;
-  waitForReceipt?: (hash: string, timeoutMs: number) => Promise<ReceiptOutcome>;
-};
-
-/** A fake ViemSigner with generous balances; send/wait are injectable per test. */
-function fakeSigner(opts: FakeSignerOpts = {}): ViemSigner {
-  return {
-    address: SIGNER_ADDRESS,
-    async getNativeBalance() {
-      return 10n ** 30n;
-    },
-    async getErc20Balance() {
-      return 10n ** 30n;
-    },
-    async estimateMaxFeePerGas() {
-      return 1n;
-    },
-    sendTransaction:
-      opts.sendTransaction ??
-      (async () => {
-        return TX_HASH;
-      }),
-    waitForReceipt:
-      opts.waitForReceipt ??
-      (async () => {
-        return { kind: "success", gasUsed: 21000n };
-      }),
-  };
-}
-
-/** Assemble injectable deps from fakes plus the REAL repository, so D1 is genuinely written. */
+/** Assemble injectable deps from fakes plus this file's REAL repository, so D1 is genuinely written. */
 function makeDeps(signer: ViemSigner): SwapServiceDeps {
-  return { tradingApi: fakeTradingApi(), signer, repo };
+  return makeDepsWithRepo(signer, repo);
 }
 
 beforeEach(async () => {

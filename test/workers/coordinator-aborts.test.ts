@@ -6,114 +6,29 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import * as schema from "../../src/db/schema";
 import { swaps } from "../../src/db/schema";
 import type { SwapCoordinator } from "../../src/coordinator/SwapCoordinator";
-import type {
-  ClassicQuoteResponse,
-  SwapDirection,
-  SwapTx,
-  TradingApiClient,
-} from "../../src/engine/tradingApiClient";
-import type { ReceiptOutcome, ViemSigner } from "../../src/engine/viemSigner";
+import type { SwapDirection } from "../../src/engine/tradingApiClient";
 import { createTransactionsRepository } from "../../src/repository/transactions";
-import type { SwapServiceDeps } from "../../src/services/swapService";
 import {
-  checkApprovalNonNull,
-  checkApprovalNull,
-  quoteClassic,
-  swapNested,
-} from "../fixtures/tradingApi";
+  ethToUsdcInput,
+  fakeSigner,
+  fakeTradingApi,
+  makeDeps as makeDepsWithRepo,
+  TX_HASH,
+} from "./helpers/coordinatorFakes";
+import type { ViemSigner } from "../../src/engine/viemSigner";
+import type { TradingApiClient } from "../../src/engine/tradingApiClient";
+import type { SwapServiceDeps } from "../../src/services/swapService";
+import { checkApprovalNonNull } from "../fixtures/tradingApi";
 
 const db = drizzle(env.DB, { schema });
 const repo = createTransactionsRepository(db);
 
-/** Pinned signer address for the fake signer, distinct from the quote fixtures' swapper. */
-const SIGNER_ADDRESS = "0x3333333333333333333333333333333333333333";
-/** A plausible broadcast tx hash returned by the fake signer's sendTransaction. */
-const TX_HASH =
-  "0x4ca7ee652d57678f26e887c149ab0735f41de37bcad58c9f6d3ed5824f15b74d";
-
-/** Happy-path ETH→USDC input; native input needs no approval gate. */
-function ethToUsdcInput(): {
-  direction: SwapDirection;
-  amountIn: string;
-  userId: string;
-} {
-  return {
-    direction: "ETH_TO_USDC",
-    amountIn: "1000000000000000000",
-    userId: "user-1",
-  };
-}
-
-/** Overridable hooks for the fake TradingApiClient so abort tests can drive approval/quote. */
-type FakeTradingApiOpts = {
-  checkApproval?: TradingApiClient["checkApproval"];
-  getQuote?: TradingApiClient["getQuote"];
-};
-
-/** A fake TradingApiClient serving the CLASSIC quote/swap fixtures; checkApproval/getQuote injectable. */
-function fakeTradingApi(opts: FakeTradingApiOpts = {}): TradingApiClient {
-  return {
-    checkApproval:
-      opts.checkApproval ??
-      (async () => {
-        return { approval: null };
-      }),
-    getQuote:
-      opts.getQuote ??
-      (async () => {
-        return quoteClassic as unknown as ClassicQuoteResponse;
-      }),
-    async buildSwap() {
-      return { ...swapNested.swap } as SwapTx;
-    },
-  };
-}
-
-/** Overridable hooks for the fake signer so individual tests can drive send/wait/balance. */
-type FakeSignerOpts = {
-  sendTransaction?: (tx: {
-    to: string;
-    data: string;
-    value: string;
-  }) => Promise<string>;
-  waitForReceipt?: (hash: string) => Promise<ReceiptOutcome>;
-  getNativeBalance?: (address: string) => Promise<bigint>;
-};
-
-/** A fake ViemSigner with generous default balances; send/wait/balance are injectable per test. */
-function fakeSigner(opts: FakeSignerOpts = {}): ViemSigner {
-  return {
-    address: SIGNER_ADDRESS,
-    getNativeBalance:
-      opts.getNativeBalance ??
-      (async () => {
-        return 10n ** 30n;
-      }),
-    async getErc20Balance() {
-      return 10n ** 30n;
-    },
-    async estimateMaxFeePerGas() {
-      return 1n;
-    },
-    sendTransaction:
-      opts.sendTransaction ??
-      (async () => {
-        return TX_HASH;
-      }),
-    waitForReceipt:
-      opts.waitForReceipt ??
-      (async () => {
-        return { kind: "success", gasUsed: 21000n };
-      }),
-  };
-}
-
-/** Assemble injectable deps from fakes plus the REAL repository, so D1 is genuinely written. */
+/** Assemble injectable deps from fakes plus this file's REAL repository, so D1 is genuinely written. */
 function makeDeps(
   signer: ViemSigner,
   tradingApi: TradingApiClient = fakeTradingApi(),
 ): SwapServiceDeps {
-  return { tradingApi, signer, repo };
+  return makeDepsWithRepo(signer, repo, tradingApi);
 }
 
 beforeEach(async () => {
@@ -306,9 +221,6 @@ describe("SwapCoordinator abort dispositions", () => {
         throw new Error(secretMessage);
       },
     });
-    // A no-op guard on checkApprovalNull keeps the import referenced and documents
-    // that native input skips the approval gate entirely.
-    void checkApprovalNull;
 
     let result;
     try {
