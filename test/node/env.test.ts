@@ -7,7 +7,11 @@ const AUTH_PASSPHRASE = "auth-passphrase-secret";
 const UNISWAP_API_KEY = "uniswap-api-key-secret";
 const ETH_RPC_URL = "https://rpc.example/secret-path";
 
-/** A complete, valid fake env; individual tests clone and mutate it. */
+/**
+ * A complete, valid fake env carrying every var/secret `validateEnv` reads.
+ * The cast supplies the two resource bindings (`OAUTH_KV`, `DB`) that
+ * `CloudflareBindings` requires but `validateEnv` never touches.
+ */
 function completeEnv(): CloudflareBindings {
   return {
     SWAP_PRIVATE_KEY,
@@ -70,6 +74,40 @@ describe("env", () => {
     expect(validated.tradingApiBaseUrl).toBe(
       "https://trade-api.gateway.uniswap.org/v1",
     );
+  });
+
+  test('TRADING_API_BASE_URL must be https (no http bypass)', () => {
+    const plaintext = completeEnv() as unknown as Record<string, unknown>;
+    plaintext.TRADING_API_BASE_URL =
+      "http://trade-api.gateway.uniswap.org/v1";
+    expect(() =>
+      validateEnv(plaintext as unknown as CloudflareBindings),
+    ).toThrow();
+
+    const secure = completeEnv() as unknown as Record<string, unknown>;
+    secure.TRADING_API_BASE_URL = "https://trade-api.gateway.uniswap.org/v1";
+    expect(() =>
+      validateEnv(secure as unknown as CloudflareBindings),
+    ).not.toThrow();
+  });
+
+  test('TRADING_API_BASE_URL trailing-dot host fails closed', () => {
+    const trailingDot = completeEnv() as unknown as Record<string, unknown>;
+    trailingDot.TRADING_API_BASE_URL =
+      "https://trade-api.gateway.uniswap.org./v1";
+    expect(() =>
+      validateEnv(trailingDot as unknown as CloudflareBindings),
+    ).toThrow();
+  });
+
+  test('ALLOWED_ORIGINS filters out empty entries', () => {
+    const env = completeEnv() as unknown as Record<string, unknown>;
+    env.ALLOWED_ORIGINS = "https://claude.ai, , https://x.com,";
+    const validated = validateEnv(env as unknown as CloudflareBindings);
+    expect(validated.allowedOrigins).toEqual([
+      "https://claude.ai",
+      "https://x.com",
+    ]);
   });
 
   test('secrets are accessor functions, never plain fields', () => {

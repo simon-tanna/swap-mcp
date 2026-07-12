@@ -6,11 +6,16 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  // Secrets (set via `wrangler secret put <NAME>`, never committed):
-  //   SWAP_PRIVATE_KEY   - signer key for swap execution
-  //   AUTH_PASSPHRASE    - auth passphrase
-  //   UNISWAP_API_KEY    - Uniswap Trading API key
-  //   ETH_RPC_URL        - Ethereum RPC endpoint
+  // Secret NAMES only (values set via `wrangler secret put <NAME>`, never committed).
+  // `secrets.required` drives typed bindings and fail-closed validation on deploy.
+  "secrets": {
+    "required": [
+      "SWAP_PRIVATE_KEY",
+      "AUTH_PASSPHRASE",
+      "UNISWAP_API_KEY",
+      "ETH_RPC_URL"
+    ]
+  },
   "vars": {
     "CHAIN_ID": "1",
     "CANONICAL_MCP_URI": "https://swap-mcp.example.workers.dev/mcp",

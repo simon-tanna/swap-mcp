@@ -19,10 +19,11 @@ export interface ValidatedEnv {
   getEthRpcUrl(): string;
 }
 
-/** True when `value` is a URL whose host is exactly the trading-API allowlisted host. */
+/** True when `value` is an https URL whose host is exactly the trading-API allowlisted host. */
 function isAllowlistedTradingUrl(value: string): boolean {
   try {
-    return new URL(value).host === TRADING_API_HOST;
+    const url = new URL(value);
+    return url.protocol === "https:" && url.host === TRADING_API_HOST;
   } catch {
     return false;
   }
@@ -56,7 +57,9 @@ export function validateEnv(env: CloudflareBindings): ValidatedEnv {
     chainId: data.CHAIN_ID,
     canonicalMcpUri: data.CANONICAL_MCP_URI,
     tradingApiBaseUrl: data.TRADING_API_BASE_URL,
-    allowedOrigins: data.ALLOWED_ORIGINS.split(",").map((o) => o.trim()),
+    allowedOrigins: data.ALLOWED_ORIGINS.split(",")
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0),
     getSwapPrivateKey: () => swapPrivateKey,
     getAuthPassphrase: () => authPassphrase,
     getUniswapApiKey: () => uniswapApiKey,
