@@ -434,11 +434,11 @@
       "deps": [
         "T22"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "8d5ac183b4331a7979b320e68726cf2597777bed",
       "task_start_sha": "fc4f6957c8a5dc11b1cb6dc0bc386b526b5d89e5",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "8d5ac183b4331a7979b320e68726cf2597777bed",
+      "quality_review_sha": "8d5ac183b4331a7979b320e68726cf2597777bed",
       "blocker_count": 0
     },
     {

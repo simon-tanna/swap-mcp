@@ -133,3 +133,10 @@
 - Gate: 134 tests / 22 files green, tsc+prettier clean.
 - PATTERN for T23 (execute_swap registrar): reuse guarded() with scope "swap:write"; ToolDeps.coordinator.executeSwap already carried. Reuse CURATED_MESSAGE map. Register via server.registerTool with bare ZodRawShape.
 - OPTIONAL follow-ups (minor, non-blocking): (a) type service.getQuote via Parameters<typeof getQuote>[1] to catch drift; (b) content[0].text is full JSON.stringify — could be a short human summary instead.
+
+## T23 — MCP execute_swap registrar (write/money path) — DONE 2026-07-12
+- Commit 8d5ac18: src/mcp/tools/executeSwap.ts (registerExecuteSwap, exports executeSwapInputShape bare ZodRawShape) + test/workers/mcp-execute-tool.test.ts (4 tests). 138 tests / 23 files green.
+- Reuses guarded(deps,"swap:write",work) — gates (assertAudience → requireScope write) run BEFORE coordinator.executeSwap. Fail-closed verified: read-scope AND wrong-audience both → forbidden with coordinator vi.fn spy NOT called (non-vacuous: removing a gate flips the assertion).
+- SECURITY (both reviews approved, verified non-vacuously): userId sourced ONLY from props.userId (=SINGLE_USER_ID); executeSwapInputShape has NO userId field so a caller cannot spoof it. Optional fields (expectedAmountOut/slippageTolerancePct/deadlineSeconds) forwarded via `...(x!==undefined && {x})` — omitted keys literally absent (tested via `'x' in forwarded === false`), never undefined. Leak channel airtight by construction: guarded catch maps classify(e)→code→CURATED_MESSAGE, never forwards e.message; T4 asserts full JSON.stringify(envelope) excludes rpc-url + 64-hex key.
+- MINOR (to fix in T24): MCP test harness helpers (ToolResult/call/errorOf) now duplicated in mcp-read-tools.test.ts + mcp-execute-tool.test.ts (2 copies). T24 adds mcp-agent.test.ts (3rd). → extract test/workers/helpers/mcpHarness.ts during T24 and have all 3 import it.
+- PATTERN for T24: SwapMcpAgent.init() calls all four registrars (registerGetQuote/registerGetTransaction/registerListTransactions/registerExecuteSwap) with getProps: () => this.props.
