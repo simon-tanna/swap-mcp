@@ -2,6 +2,12 @@
   "name": "swap-mcp",
   "type": "module",
   "packageManager": "pnpm@10.33.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "core-js-pure"
+    ]
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
@@ -27,7 +33,7 @@
     "drizzle-kit": "^0.31.10",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6",
-    "typescript": "^7.0.2",
+    "typescript": "^5.7.0",
     "vitest": "^4.1.10",
     "wrangler": "^4.110.0"
   }
