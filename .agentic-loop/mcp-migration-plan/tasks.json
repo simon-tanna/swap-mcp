@@ -298,11 +298,11 @@
         "T13",
         "T15"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "594e637",
       "task_start_sha": "e279789",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "594e637",
+      "quality_review_sha": "594e637",
       "blocker_count": 0
     },
     {
