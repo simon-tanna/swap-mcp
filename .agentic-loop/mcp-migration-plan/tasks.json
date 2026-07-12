@@ -318,11 +318,11 @@
         "T14",
         "T16"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "0b370fd",
       "task_start_sha": "f395cbc",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "0b370fd",
+      "quality_review_sha": "0b370fd",
       "blocker_count": 0
     },
     {
