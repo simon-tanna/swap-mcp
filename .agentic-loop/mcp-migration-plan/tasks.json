@@ -238,11 +238,11 @@
         "T3",
         "T9"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
       "task_start_sha": "043413fb87d5a5bce09e8ce74953817bdadb5857",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
+      "quality_review_sha": "dd0dff85c0f6070b8389d31b8ecdedf71a36d11c",
       "blocker_count": 0
     },
     {
