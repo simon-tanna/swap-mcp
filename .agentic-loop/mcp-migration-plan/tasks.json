@@ -163,11 +163,11 @@
       "deps": [
         "T1"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "8ec4ded",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "8ec4ded",
+      "quality_review_sha": "8ec4ded",
       "blocker_count": 0
     },
     {
