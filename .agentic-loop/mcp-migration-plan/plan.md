@@ -15,13 +15,14 @@
 - **Global test gate.** The repo's resolved quality gate is `pnpm typecheck && pnpm vitest run` (there is no `scripts/quality-gates.sh` in this repo). "Run full gate" in any task step means exactly that command pair, and every task must end with it green.
 - **Fully mocked chain.** No automated test may hit the network or a real RPC. Chain I/O is exercised only through injected fake `TradingApiClient` / `ViemSigner` implementations returning recorded fixtures from `test/fixtures/`. `scripts/smoke.ts` (T34) is the only real-chain artifact and is never run by the suite.
 - **Placeholder bindings/secrets.** All bindings ship as placeholders (`OAUTH_KV`, D1 id, three DO bindings) and all secrets (`SWAP_PRIVATE_KEY`, `AUTH_PASSPHRASE`, `UNISWAP_API_KEY`, `ETH_RPC_URL`) are documented `wrangler secret put` placeholders, never committed (spec §5.1, G12).
+- **cf-typegen output committed.** Every task that runs `pnpm cf-typegen` (T2, T18, T24, T28) must commit the **regenerated `worker-configuration.d.ts`** (the `CloudflareBindings` type file) in the same green commit, so the committed types always match the committed `wrangler.jsonc` bindings.
 - **Vitest layout (research-stage2 — overrides any older API memory).** `vitest.config.ts` uses the `cloudflareTest()` Vite plugin from `@cloudflare/vitest-pool-workers` inside plain `defineConfig` from `vitest/config` — never `defineWorkersConfig`, never `poolOptions.workers`, never `isolatedStorage`/`singleWorker` (per-file isolation is the default). Worker-level fetches use `import { env, exports } from "cloudflare:workers"` and `exports.default.fetch()` — never `SELF`. DO instance access uses `runInDurableObject` from `cloudflare:test`. D1 migrations reach tests via `readD1Migrations("./drizzle")` → `miniflare.bindings.TEST_MIGRATIONS` → `applyD1Migrations(env.DB, env.TEST_MIGRATIONS)` in a setup file.
 
 ## Resolved planning choices (latitude exercised by the planner)
 
 Three points where the spec permitted implementer latitude; the plan records the chosen resolution so tasks are unambiguous:
 
-1. **Scope grant = unconditionally both `["swap:read","swap:write"]` (interview decision 26, round 7).** The consent POST (T30) hardcodes the grant exactly as spec §5.6 states — `completeAuthorization` is always called with both scopes regardless of what the client requested. An earlier draft's requested-∩-both intersection was rejected at plan review as an unauthorised access-control change. T32's read-only-token negative tests mint their `swap:read`-only token via a **test-only direct props-injection helper** (never a production code path), so the write-path rejection coverage is preserved.
+1. **Scope grant = unconditionally both `["swap:read","swap:write"]` (interview decision 26, round 7).** The consent POST (T30) hardcodes the grant exactly as spec §5.6 states — `completeAuthorization` is always called with both scopes regardless of what the client requested. An earlier draft's requested-∩-both intersection was rejected at plan review as an unauthorised access-control change. **The production consent flow always grants both scopes; there is no token-forging seam and none may be created** (`@cloudflare/workers-oauth-provider` end-to-end-encrypts grant props under the access token, so no forged read-only bearer is decryptable). T32's write-path rejection coverage is therefore proven at the **app-owned auth seam** in the workers pool — a fake `deps.getProps` returning `{ scopes: ["swap:read"] }` is asserted to make `requireScope(props,"swap:write")` reject against both the real `registerExecuteSwap` registrar and the real `POST /api/swap` route (via the T25 props-adapter seam) — never by minting a narrower token.
 2. **Cursor integrity = strict schema validation (not HMAC).** Spec §5.7 permits "HMAC-signed **or** strictly schema-validated". The cursor codec (T10) base64url-encodes canonical JSON and strictly Zod-validates `{ createdAt: positive int, id: uuid }` on decode; any tamper producing an out-of-schema payload is rejected `invalid_input`. A structurally-valid-but-different cursor merely addresses a different page and leaks nothing — no server signing secret is introduced.
 3. **Incremental DO bindings in `wrangler.jsonc`.** The three DO classes are wired into `wrangler.jsonc` (`durable_objects.bindings` + `migrations.new_sqlite_classes`) incrementally as each class first comes into existence — `SwapCoordinator` (T18), `SwapMcpAgent` (T24), `RateLimiter` (T28) — because the pool fails to boot if the config names a class the Worker does not yet export. The final config state matches spec §5.1 exactly.
 
@@ -99,7 +100,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 **Implementation surface:**
 
-- `package.json` dependencies: `agents@^0.17.3`, `@modelcontextprotocol/sdk`, `@cloudflare/workers-oauth-provider@^0.8.1`, `zod@^4`, `drizzle-orm@^0.45.2`, `viem@^2.55.0` (keep existing `hono`)
+- `package.json` dependencies: `agents@^0.17.3`, `@modelcontextprotocol/sdk@^1.26` (pin `^1.26` — versions <1.26 share a single `McpServer` across requests, a cross-client leakage hazard), `@cloudflare/workers-oauth-provider@^0.8.1`, `zod@^4`, `drizzle-orm@^0.45.2`, `viem@^2.55.0` (keep existing `hono`)
 - `package.json` devDependencies: `@cloudflare/vitest-pool-workers@^0.18.4` (pin whatever patch exports `cloudflareTest()` with the vitest ^4.1 peer at install time), `vitest@^4.1.10`, `drizzle-kit@^0.31.10`, `tsx`, `prettier` (keep existing `wrangler`)
 - `package.json` scripts: `test: "vitest run"`, `typecheck: "tsc --noEmit"`, `lint: "prettier --check ."`, `format: "prettier --write ."`, `db:generate: "drizzle-kit generate"`, `smoke: "tsx scripts/smoke.ts"` (existing `dev`/`deploy`/`cf-typegen` unchanged; pnpm only)
 - `vitest.config.ts`: `defineConfig` from `vitest/config` with `test.projects` containing one project `{ test: { name: "node", include: ["test/node/**/*.test.ts"], environment: "node" } }`
@@ -108,7 +109,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 - [ ] **Step 1:** Run `pnpm vitest run` before adding anything — confirm it fails (no config/tests).
 - [ ] **Step 2:** Add deps/devDeps/scripts to `package.json`; `pnpm install`.
-- [ ] **Step 3 (install-time verification, research-stage2 §Planning implications #4):** Inspect `node_modules/agents/dist/mcp.d.ts` and confirm the static `serve(path, options?)` overload exists and note whether `options.binding` is present. Record the finding as a code comment where `SwapMcpAgent.serve("/mcp")` will be called (T31). The plan assumes the no-`{ binding }` form (spec §5.6/M8).
+- [ ] **Step 3 (install-time verification, research-stage2 §Planning implications #4):** Inspect `node_modules/agents/dist/mcp.d.ts` and confirm the static `serve(path, options?)` overload exists and note whether `options.binding` is present. Record the finding as a code comment where `SwapMcpAgent.serve("/mcp")` will be called (T31). **Pass/fail oracle:** *pass* = a `serve(path, options?)` overload exists whose `options` is optional (or absent) → T31 calls `SwapMcpAgent.serve("/mcp")` with no second argument, matching spec §5.6/M8. *Fail-branch* = if the **only** available overload requires a `{ binding }` argument, this does **not** block — T31 instead passes `{ binding: "SwapMcpAgent" }` (the class-name binding added in T24), and the code comment records which form the installed types dictated. Either way the finding is pinned in a comment; the plan's default assumption is the no-`{ binding }` form.
 - [ ] **Step 4:** Create `vitest.config.ts` (node project) and `test/node/canary.test.ts`; run `pnpm vitest run`, confirm green.
 - [ ] **Step 5:** Run full gate (`pnpm typecheck && pnpm vitest run`).
 - [ ] **Step 6:** Commit. Message: `chore(deps): install runtime and test toolchain with node vitest project`. Body: `TDD: test/node/canary.test.ts written before config finalization; gate proven red then green.`
@@ -130,7 +131,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 - Test name: `workers pool boots with wrangler config and exposes bindings`
 - Assertions:
   - `env.OAUTH_KV` is defined (covers §7 G12 placeholder-bindings; scaffolding for G1/G2 — the `OAUTH_KV` name is load-bearing: `@cloudflare/workers-oauth-provider@0.8.1` reads `env.OAUTH_KV` by convention, there is no `kv` constructor option)
-  - `env.DB` is defined and `env.DB.prepare("SELECT 1").first()` resolves (covers §7 G12; scaffolding for G8)
+  - `env.DB` is defined and `env.DB.prepare("SELECT 1").first()` resolves (`SELECT 1` is **deliberately schema-free** — it proves the D1 binding is live without depending on any table, since migrations are not applied until T8; covers §7 G12; scaffolding for G8)
   - `env.CHAIN_ID === "1"`, `env.CANONICAL_MCP_URI`, `env.TRADING_API_BASE_URL`, `env.ALLOWED_ORIGINS` are defined (covers §7 G12)
 
 **Expected first-run failure:** `env.OAUTH_KV is undefined` (bindings not yet declared in `wrangler.jsonc`).
@@ -269,11 +270,11 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Files:**
 
 - Create: `src/auth/constantTime.ts`
-- Test: `test/node/constant-time.test.ts`
+- Test: `test/workers/constant-time.test.ts` (workers pool, not node — `crypto.subtle.timingSafeEqual` is a Workers-runtime extension absent from Node's WebCrypto)
 
 **Test contract:**
 
-- File: `test/node/constant-time.test.ts`
+- File: `test/workers/constant-time.test.ts`
 - Test names: `equal strings compare true`, `unequal strings compare false`, `length difference compares false without throwing`, `comparison operates on SHA-256 digests`
 - Assertions:
   - `await timingSafeEqualDigest("secret", "secret")` is `true` (covers §7 G2 SHA-256-then-constant-time)
@@ -284,7 +285,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 **Implementation surface:**
 
-- `export async function timingSafeEqualDigest(a: string, b: string, deps?: { digest?: (data: Uint8Array) => Promise<ArrayBuffer> }): Promise<boolean>` — SHA-256 both sides via `crypto.subtle.digest`, then constant-time byte compare of the two 32-byte digests (never a raw string compare)
+- `export async function timingSafeEqualDigest(a: string, b: string, deps?: { digest?: (data: Uint8Array) => Promise<ArrayBuffer> }): Promise<boolean>` — SHA-256 both sides via `crypto.subtle.digest`, then compare the two 32-byte digests with **`crypto.subtle.timingSafeEqual`** (the Workers-runtime constant-time primitive) — never a raw string compare and never a hand-rolled byte loop
 
 **Expected pass criteria:** green; gate green.
 
@@ -293,7 +294,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 - [ ] **Step 3:** Implement `src/auth/constantTime.ts`.
 - [ ] **Step 4:** Run test, confirm green.
 - [ ] **Step 5:** Run full gate.
-- [ ] **Step 6:** Commit. Message: `feat(auth): SHA-256 digest constant-time passphrase compare`. Body: `TDD: test/node/constant-time.test.ts written before src/auth/constantTime.ts.`
+- [ ] **Step 6:** Commit. Message: `feat(auth): SHA-256 digest constant-time passphrase compare`. Body: `TDD: test/workers/constant-time.test.ts written before src/auth/constantTime.ts.`
 
 ---
 
@@ -367,7 +368,8 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 - [ ] **Step 1:** Write the failing test covering the assertions above.
 - [ ] **Step 2:** Run test, confirm `no such table` failure.
-- [ ] **Step 3:** Implement schema + config, generate migrations, wire `TEST_MIGRATIONS` + setup file.
+- [ ] **Step 3a (export-path verification):** before writing the vitest config, confirm `readD1Migrations` is actually exported by the installed `@cloudflare/vitest-pool-workers` package — inspect its `package.json` `exports` / the `.d.ts` for the exact import path (`@cloudflare/vitest-pool-workers/config` vs another subpath). Pin the verified path in a code comment; do not assume.
+- [ ] **Step 3:** Implement schema + config, generate migrations, wire `TEST_MIGRATIONS` + setup file (import `readD1Migrations` from the verified path).
 - [ ] **Step 4:** Run test, confirm green (T2 canary still green).
 - [ ] **Step 5:** Run full gate.
 - [ ] **Step 6:** Commit. Message: `feat(db): swaps schema with drizzle-kit migrations applied in tests`. Body: `TDD: test/workers/schema.test.ts written before src/db/schema.ts.`
@@ -500,6 +502,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
   - `resolveSwapParams({ direction, amountIn })` yields `slippageTolerancePct: 0.5`, `deadlineSeconds: 1200`; `slippageTolerancePct: 5` accepted; `5.1` throws `AppError("invalid_input")` (covers §7 G6 cap/defaults)
   - `amountIn: "0"`, `"-1"`, `"1.5"`, `""` each throw `AppError("invalid_input")`; `"1000000"` passes (covers §7 G6 amount>0)
   - `pctToFraction(0.5) === 0.005` — percent at the API/MCP boundary, fraction in math (covers §7 G6/G5 slippage units)
+  - **integer-bps pin (before the bigint multiply):** the drift math converts `slippageTolerancePct` to **integer basis points** (`0.5` → `50n` bps, `5` → `500n` bps) and uses `expected − expected × tolBps / 10000n`; assert the intermediate bps value is an integer bigint (no float enters the bigint amount math — a `0.5%` tolerance is `50n`, never `0.005 × expected` in floating point) (covers §7 G6 integer-bps drift math)
   - caller-floor branch: with `expectedAmountOut = 1000n`, `tol = 0.5`, `checkDrift(994n, 1000n, 0.5)` returns `{ abort: true }` (994 < 1000 × 0.995) and `checkDrift(996n, 1000n, 0.5)` returns `{ abort: false }` (covers §7 G3/G6 drift floor)
   - omitted-floor branch: `checkDrift(anyFresh, undefined, tol)` always returns `{ abort: false }` — no drift abort; the API-embedded slippage floor is the only rail (covers §7 G3/G6 omitted-floor semantics; guards the v2 double-count bug)
 
@@ -528,19 +531,19 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Domain:** general-purpose
 **Files:**
 
-- Create: `src/engine/tradingApiClient.ts`, `test/fixtures/tradingApi.ts` (fixtures: `/check_approval` null + non-null; `/quote` CLASSIC, WRAP, UNWRAP, and a DUTCH_V2-shaped body; `/swap` response)
+- Create: `src/engine/tradingApiClient.ts`, `test/fixtures/tradingApi.ts` (fixtures: `/check_approval` null + non-null; `/quote` CLASSIC, WRAP, UNWRAP, and a DUTCH_V2-shaped body; `/swap` response — the Trading API nests the tx under a top-level `{ swap: { to, data, value, ... } }` key, so the fixture is nested and the client unwraps it)
 - Test: `test/node/trading-api-shapes.test.ts`
 
 **Test contract:**
 
 - File: `test/node/trading-api-shapes.test.ts`
-- Test names: `getQuote sends the EXACT_INPUT CLASSIC request contract`, `all calls carry required headers`, `routing-shape assertion fails closed on non-CLASSIC-family routing`, `quoted output is read via the routing-aware accessor`, `buildSwap spreads the quote and strips null permit fields`, `native ETH uses the zero-address sentinel`
+- Test names: `getQuote sends the EXACT_INPUT CLASSIC request contract with pinned tokenIn/tokenOut`, `all calls carry required headers`, `routing-shape assertion fails closed on non-CLASSIC-family routing`, `quoted output is read via the routing-aware accessor`, `buildSwap spreads the quote, strips null permit fields, and unwraps the nested { swap } response`, `native ETH uses the zero-address sentinel`
 - Assertions (fetch stubbed via injected `fetchImpl`; fixtures only):
-  - `/quote` body has `type:"EXACT_INPUT"`, `tokenInChainId:"1"`, `tokenOutChainId:"1"` (strings), `routingPreference:"CLASSIC"`, `swapper`, base-unit `amount`, `slippageTolerance` as **percent** number (covers §7 G5)
+  - `/quote` body has `type:"EXACT_INPUT"`, `tokenInChainId:"1"`, `tokenOutChainId:"1"` (strings), `routingPreference:"CLASSIC"`, `swapper`, base-unit `amount`, `slippageTolerance` as **percent** number, and **pinned `tokenIn`/`tokenOut` addresses** — ETH_TO_USDC sends `tokenIn === NATIVE_ETH_SENTINEL`, `tokenOut === USDC_ADDRESS`; USDC_TO_ETH the reverse (covers §7 G5)
   - every request carries `x-api-key` (via accessor), `Content-Type: application/json`, `x-universal-router-version: 2.0`, and targets `TRADING_API_BASE_URL` (covers §7 G5)
   - a DUTCH_V2-routing fixture makes `getQuote` throw `AppError("upstream_unavailable")` **before** any output field is read (covers §7 G5 routing assertion — fail closed)
   - `readQuotedOutput(classicFixture) === fixture.quote.output.amount` for CLASSIC/WRAP/UNWRAP — accessor is routing-aware, never a bare property read on unasserted shapes (covers §7 G5)
-  - `buildSwap` request body is the quote response spread at top level (not nested under `quote`), with `permitData: null` / `permitTransaction: null` keys absent; result is `{ to, data, value, chainId, gasLimit }` with `to === UNIVERSAL_ROUTER_ADDRESS` (covers §7 G5)
+  - `buildSwap` request body is the quote response spread at top level (not nested under `quote`), with `permitData: null` / `permitTransaction: null` keys absent; the `/swap` **response is nested under a top-level `{ swap: {...} }` key and `buildSwap` unwraps it** (assert the client reads `response.swap`, not a top-level `response.to`); result is `{ to, data, value, chainId, gasLimit }` with `to === UNIVERSAL_ROUTER_ADDRESS` (covers §7 G5)
   - ETH-side token in requests is `NATIVE_ETH_SENTINEL` for ETH_TO_USDC input / USDC_TO_ETH output (covers §7 G5)
 
 **Expected first-run failure:** `Cannot find module '../../src/engine/tradingApiClient'`.
@@ -609,12 +612,12 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Test contract:**
 
 - File: `test/node/viem-signer.test.ts` (viem clients replaced via an injected `clientFactory` returning fakes — no RPC)
-- Test names: `getNativeBalance reads native ETH via getBalance`, `getErc20Balance reads USDC balanceOf`, `sendTransaction signs and submits returning the hash`, `waitForReceipt distinguishes success, revert and timeout`, `clients are created per call, not at module scope`, `estimateMaxFeePerGas surfaces the fee estimate`
+- Test names: `getNativeBalance reads native ETH via getBalance`, `getErc20Balance reads USDC balanceOf`, `sendTransaction signs and submits returning the hash`, `waitForReceipt distinguishes success, revert, timeout and a non-timeout throw (unknown)`, `clients are created per call, not at module scope`, `estimateMaxFeePerGas surfaces the fee estimate`
 - Assertions:
   - `getNativeBalance(addr)` delegates to the fake public client's `getBalance` and returns its bigint (18-decimals source for ETH→USDC input — covers §7 G5 direction-aware balances)
   - `getErc20Balance(USDC_ADDRESS, addr)` calls `readContract` with `functionName:"balanceOf"` on `USDC_ADDRESS` and returns the bigint (6-decimals source for USDC→ETH input — covers §7 G5)
   - `sendTransaction({ to, data, value })` uses an account derived via `privateKeyToAccount(getPrivateKey())` and returns the fake hash; the private key is obtained through the accessor at call time, never stored on the signer object (covers §7 G5/G10 — `JSON.stringify(signer)` contains no key material)
-  - `waitForReceipt(hash, timeoutMs)`: fake receipt `status:"success"` → `{ kind: "success", gasUsed }`; `status:"reverted"` → `{ kind: "reverted" }`; a `WaitForTransactionReceiptTimeoutError`-named throw → `{ kind: "timeout" }` — three distinct outcomes, timeout never conflated with revert (covers §7 G3/G7/G8 timeout-vs-revert; M3)
+  - `waitForReceipt(hash, timeoutMs)`: fake receipt `status:"success"` → `{ kind: "success", gasUsed }`; `status:"reverted"` → `{ kind: "reverted" }`; a `WaitForTransactionReceiptTimeoutError`-named throw → `{ kind: "timeout" }`; **any other (non-timeout) throw — an RPC error, a replacement/`TransactionReceiptNotFoundError`, or an unnamed error — → `{ kind: "unknown" }`** — four distinct outcomes, timeout never conflated with revert, and a non-timeout throw never surfaced as `reverted` (covers §7 G3/G7/G8 timeout-vs-revert + Major 2 non-timeout-throw branch; M3)
   - the injected `clientFactory` is invoked on each signer method call (per-request clients — covers §5.8/§5.9 constraint; scaffolding)
   - `estimateMaxFeePerGas()` returns the fake fee-estimate bigint (scaffolding for the M1 gas-headroom rail in T17)
 
@@ -623,7 +626,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Implementation surface:**
 
 - `export interface ViemSigner { address: string; getNativeBalance(addr: string): Promise<bigint>; getErc20Balance(token: string, addr: string): Promise<bigint>; estimateMaxFeePerGas(): Promise<bigint>; sendTransaction(tx: { to: string; data: string; value: string }): Promise<string>; waitForReceipt(hash: string, timeoutMs: number): Promise<ReceiptOutcome> }`
-- `export type ReceiptOutcome = { kind: "success"; gasUsed: bigint } | { kind: "reverted" } | { kind: "timeout" }`
+- `export type ReceiptOutcome = { kind: "success"; gasUsed: bigint } | { kind: "reverted" } | { kind: "timeout" } | { kind: "unknown" }` — the `"unknown"` default is returned for any non-timeout, non-revert throw (RPC error, replacement, receipt-not-found); the coordinator maps it exactly like `"timeout"` (row stays `submitted`, result `timed_out`), never to `failed` (Major 2 / M3)
 - `export function createViemSigner(deps: { getPrivateKey: () => string; getRpcUrl: () => string; clientFactory?: ClientFactory }): ViemSigner` (default factory: `createPublicClient`/`createWalletClient` with `chain: mainnet`, `transport: http(getRpcUrl())`, per call; `waitForTransactionReceipt({ hash, timeout })` with timeout in ms — confirmed current viem 2.55 API)
 
 **Expected pass criteria:** green; gate green.
@@ -685,7 +688,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Test contract:**
 
 - File: `test/node/swap-service-execute.test.ts` (fake `TradingApiClient` + fake `ViemSigner` + in-memory fake `TransactionsRepository` recording transitions)
-- Test names: `happy path transitions pending→submitted→confirmed`, `re-quote happens immediately before submission and is routing-asserted`, `caller drift floor aborts with slippage_exceeded and no transaction`, `omitted floor never drift-aborts`, `USDC→ETH non-null approval aborts approval_required without any transaction`, `ETH→USDC skips check_approval`, `ETH→USDC balance rail requires amountIn plus gas headroom`, `USDC→ETH balance rail checks erc20 input and native gas separately`, `rail failures write pending→failed with errorCode and no txHash`
+- Test names: `happy path transitions pending→submitted→confirmed`, `re-quote happens immediately before submission and is routing-asserted`, `caller drift floor aborts with slippage_exceeded and no transaction`, `omitted floor never drift-aborts`, `USDC→ETH non-null approval aborts approval_required without any transaction`, `ETH→USDC skips check_approval`, `balance/gas-headroom rail runs after buildSwap and consumes SwapTx.gasLimit`, `ETH→USDC balance rail requires amountIn plus gas headroom`, `USDC→ETH balance rail checks erc20 input and native gas separately`, `rail failures write pending→failed with errorCode and no txHash`
 - Assertions:
   - happy path: repo sees `insertPending` → `markSubmitted(txHash)` → `markConfirmed({ actualAmountOut, gasUsed })` in order; result `{ status: "confirmed", result: "ok", txHash, transactionId, actualAmountOut, gasUsed }` (covers §7 G3/G8)
   - `tradingApi.getQuote` is called inside `executeSwap` (never reuses a client quote) with `slippageTolerance` = resolved pct; a DUTCH_V2 re-quote fixture aborts `upstream_unavailable` with the row marked failed (covers §5.8 step 2 / G5)
@@ -693,22 +696,24 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
   - with `expectedAmountOut` omitted and a heavily-drifted fresh quote: **no** drift abort — flow proceeds to `/swap`; the service computes/carries no `amountOutMinimum` field anywhere (assert the `/swap` request equals the spread quote) (covers §7 G3/G6 omitted-floor)
   - USDC_TO_ETH with non-null `/check_approval` fixture: abort `approval_required`, `pending→failed`, no swap tx and **no approval tx** sent (`sendTransaction` never called) (covers §7 G3/G6 approval gating; M4)
   - ETH_TO_USDC: `checkApproval` spy has zero calls (covers §5.8 step 4)
+  - **the balance/gas-headroom rail runs AFTER `buildSwap` and consumes `SwapTx.gasLimit`:** the fake `buildSwap` is called before any balance read (spy call-order assertion), and the rail's shortfall computation uses the `gasLimit` from the `buildSwap` result (not a value invented before it) — matching spec §5.8 v3.2 step order; the rail still fires **before** `sendTransaction` (covers Major 1 — rail sequenced after its only `gasLimit` source)
   - ETH_TO_USDC with `nativeBalance = amountIn` exactly: `insufficient_balance` (needs `amountIn + gasLimit × maxFeePerGas + buffer`); with generous balance it passes (covers §7 G5/G6 gas headroom — M1)
   - USDC_TO_ETH with `erc20Balance < amountIn` → `insufficient_balance`; with sufficient USDC but native balance below `gasLimit × maxFeePerGas` → `insufficient_balance` (covers §7 G5/G6 direction-aware rail — M2)
+  - **decimals lock (optional pin):** a `1 ETH` input is `amountIn = "1000000000000000000"` (18 decimals, native) and a `1 USDC` input is `amountIn = "1000000"` (6 decimals) — the base-unit strings the direction-aware balance sources compare against, so an 18-vs-6 decimals confusion fails the test (covers §7 G5 direction-aware decimals)
   - `slippageTolerancePct: 6` and `amountIn: "0"` each produce a failed row with `invalid_input` and no tx (covers §7 G6/G8 rail disposition — M6)
 
 **Expected first-run failure:** `executeSwap is not a function` (module exports only `getQuote`).
 
 **Implementation surface:**
 
-- `export async function executeSwap(deps: SwapServiceDeps, input: ExecuteSwapInput & { userId: string }): Promise<SwapResult>` — implements §5.8 steps 1–8 sans mutex (mutex lives in the DO, T21): insert pending → re-quote (assert routing) → drift check (T12 `checkDrift`) → approval gate (USDC→ETH only) → rails incl. balance+gas headroom → `buildSwap` → sign/submit → `markSubmitted` → `waitForReceipt(hash, deadlineSeconds × 1000)` → confirm/fail/timeout mapping (timeout handling asserted in T20 at DO level and here at unit level: `kind:"timeout"` → row untouched after `submitted`, result `timed_out`)
+- `export async function executeSwap(deps: SwapServiceDeps, input: ExecuteSwapInput & { userId: string }): Promise<SwapResult>` — implements §5.8 v3.2 steps 1–9 sans mutex (mutex lives in the DO, T21): insert pending → re-quote (assert routing) → drift check (T12 `checkDrift`) → approval gate (USDC→ETH only) → input-shape rails that need no gas figure (amount>0, slippage ≤ 5%, deadline) → `buildSwap` → **balance/gas-headroom rail AFTER `buildSwap`** (it consumes `SwapTx.gasLimit` for `gasLimit × maxFeePerGas`; still before sign/submit; shortfall → `pending→failed` `insufficient_balance`, no tx) → sign/submit → `markSubmitted` → `waitForReceipt(hash, deadlineSeconds × 1000)` → confirm/fail/timeout mapping. **Timeout & non-timeout mapping (M3, spec §5.8 v3.2):** `kind:"timeout"` → row untouched after `submitted`, result `timed_out`; any non-timeout throw that is not a genuine `status:"reverted"` receipt is treated the same (row stays `submitted`, result `timed_out`, never `failed`); only a real revert writes `failed`/`swap_failed` (asserted at DO level in T20 and here at unit level)
 - `export type SwapResult = { transactionId: string; status: "confirmed" | "failed" | "submitted"; result: "ok" | "timed_out"; txHash?: string; quotedAmountOut?: string; actualAmountOut?: string; gasUsed?: string; errorCode?: ErrorCode }`
 
 **Expected pass criteria:** all nine tests green; gate green.
 
 - [ ] **Step 1:** Write the failing test covering the assertions above.
 - [ ] **Step 2:** Run test, confirm `executeSwap is not a function`.
-- [ ] **Step 3:** Implement `executeSwap` orchestration (steps 1–8, sans mutex).
+- [ ] **Step 3:** Implement `executeSwap` orchestration (spec §5.8 v3.2 steps 1–9, sans mutex; balance/gas-headroom rail placed after `buildSwap`).
 - [ ] **Step 4:** Run test, confirm green (T16 still green).
 - [ ] **Step 5:** Run full gate.
 - [ ] **Step 6:** Commit. Message: `feat(services): executeSwap orchestration with drift, approval and balance rails`. Body: `TDD: test/node/swap-service-execute.test.ts written before swapService.executeSwap.`
@@ -732,6 +737,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
   - `await stub.executeSwap(params)` (with fake engine deps) returns `{ status: "confirmed", result: "ok", txHash, transactionId }` and the D1 row (read via repository against `env.DB`) is `confirmed` with `quotedAmountOut`, `actualAmountOut`, `gasUsed`, `submittedAt`, `settledAt` populated (covers §7 G7/G8)
   - a fake signer whose `waitForReceipt` first asserts (via direct D1 read from inside the fake) that the row is already `submitted` with `txHash` — proves eager write precedes receipt wait (covers §7 G9 eager writes)
   - without injection, accessing `instance.deps` lazily constructs real clients using the secret accessors and never stores the private key as a plain field (assert `JSON.stringify` of the instance snapshot excludes key material) (covers §5.8/G10; scaffolding)
+  - **secret-leak channels (Major 5):** with `console.log` spied and a fake signer whose `sendTransaction` throws an error whose message embeds `getRpcUrl()`/private-key text, the coordinator's error handling writes a `failed`/`submitted` row whose **D1 columns contain none of those secret values**, and **every captured `log()` call's serialized output contains no secret values** (redaction applied on the coordinator's error branch, not by caller convention) (covers §7 G10 leak channels — D1 rows + coordinator logs)
 
 **Expected first-run failure:** workers pool boot error / `env.SWAP_COORDINATOR is undefined` before the class + binding exist; after scaffolding the class, `executeSwap is not a function`.
 
@@ -739,6 +745,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 - `export class SwapCoordinator extends DurableObject<CloudflareBindings> { deps?: SwapServiceDeps; async executeSwap(params: ExecuteSwapInput & { userId: string }): Promise<SwapResult> }` — builds `deps ??= createDefaultDeps(this.env)` (drizzle over `this.env.DB`, `createTradingApiClient`, `createViemSigner` with accessors from `validateEnv(this.env)`); delegates to `swapService.executeSwap`; per-request client creation preserved by the T15 factory design
 - `wrangler.jsonc`: `durable_objects.bindings: [{ name: "SWAP_COORDINATOR", class_name: "SwapCoordinator" }]`, `migrations: [{ tag: "v1", new_sqlite_classes: ["SwapCoordinator"] }]`
+- **Migrations-tag deploy note (local-boot vs real deploy):** a single `v1` migrations array whose `new_sqlite_classes` grows across T18/T24/T28 is **boot-safe locally only** (the pool re-reads config each run). A **real `wrangler deploy` must never happen mid-build**, and a real deployment needs **one migration tag per class addition** (`v1` SwapCoordinator, `v2` SwapMcpAgent, `v3` RateLimiter) because a deployed environment cannot re-apply an edited tag. T33's deploy how-to documents the per-tag sequence; the automated suite only ever boots locally.
 
 **Expected pass criteria:** green; T2 canary still green; `pnpm cf-typegen` regenerated; gate green.
 
@@ -761,13 +768,14 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Test contract:**
 
 - File: `test/workers/coordinator-aborts.test.ts`
-- Test names: `caller drift floor aborts slippage_exceeded writing a failed row with no txHash`, `omitted floor proceeds without drift abort`, `USDC→ETH missing approval aborts approval_required without sending anything`, `gas-headroom shortfall aborts insufficient_balance`, `rail abort leaves exactly one failed row (pending→failed)`
+- Test names: `caller drift floor aborts slippage_exceeded writing a failed row with no txHash`, `omitted floor proceeds without drift abort`, `USDC→ETH missing approval aborts approval_required without sending anything`, `gas-headroom shortfall aborts insufficient_balance`, `rail abort leaves exactly one failed row (pending→failed)`, `a forced signer throw carrying secrets leaks nothing to D1 or logs`
 - Assertions:
   - each abort path returns the matching `errorCode`, and the D1 row is `status:"failed"`, `errorCode` set, `txHash` null; fake signer's `sendTransaction` spy shows zero calls (covers §7 G3/G6/G8)
   - omitted-floor case reaches `buildSwap` and submits (spy: one `sendTransaction`) (covers §7 G3)
   - exactly one row exists per attempt — the pending row is transitioned, never deleted or duplicated (covers §7 G8 one-row-per-attempt)
+  - **secret-leak channels (Major 5):** a fake signer throwing an error whose message embeds `getRpcUrl()`/private-key text drives the coordinator's error branch; the persisted D1 row's every column and **every `console`-spied `log()` call** contain none of those secret values — redaction is enforced on the coordinator's real error path against real D1 (covers §7 G10 leak channels end-to-end)
 
-**Expected first-run failure:** if T17/T18 are correct these pass immediately — therefore **Step 1 deliberately breaks one expectation first** (e.g. asserts an intentionally-wrong errorCode) to watch the test fail for the right reason, then corrects the assertion; any genuinely-red assertion indicates a coordinator-level gap to fix. This is the sanctioned way to satisfy watch-it-fail on an integration-breadth test whose logic already exists.
+**Expected first-run failure (coverage-ratchet / regression-pin task — sanctioned exemption from watch-it-fail; this plan is the human authorisation):** if T17/T18 are correct these abort-disposition assertions pass immediately — they are **regression pins** over already-built behavior, **not Iron-Law red**, so do not claim Iron-Law red here. **Step 1 deliberately breaks one expectation first** (e.g. asserts an intentionally-wrong errorCode) to confirm the pin bites (watch it fail for the right reason), then restores it. The new secret-leak-channel assertion may be genuinely red if redaction is missing on the coordinator error path — fix it in `src/coordinator/SwapCoordinator.ts` if so.
 
 **Implementation surface:** none expected; fixes land in existing modules if red.
 
@@ -793,16 +801,19 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Test contract:**
 
 - File: `test/workers/coordinator-receipt.test.ts`
-- Test names: `receipt timeout leaves the row submitted with txHash and returns result timed_out`, `revert writes failed with swap_failed keeping txHash`, `timeout is never written as failed`, `receipt wait is bounded by deadlineSeconds`
+- Test names: `receipt timeout leaves the row submitted with txHash and returns result timed_out`, `revert writes failed with swap_failed keeping txHash`, `a non-timeout throw (unknown) leaves the row submitted with result timed_out`, `timeout is never written as failed`, `receipt wait is bounded by deadlineSeconds`
 - Assertions:
   - fake signer `waitForReceipt` → `{ kind: "timeout" }`: call result `{ status: "submitted", result: "timed_out", txHash }`; D1 row remains `status:"submitted"` with `txHash`, `errorCode` null — no fifth status value anywhere (covers §7 G3/G8)
   - fake `{ kind: "reverted" }`: result `{ status: "failed" , errorCode: "swap_failed", txHash }`; D1 row `failed` **with** `txHash` retained (unlike pre-submit aborts) (covers §7 G3/G8 revert distinct from timeout)
+  - **fake `{ kind: "unknown" }` (non-timeout throw — RPC error / replacement / receipt-not-found):** call result `{ status: "submitted", result: "timed_out", txHash }`; D1 row stays `status:"submitted"` with `txHash`, `errorCode` null — a non-timeout throw is **never** written `failed`/`swap_failed` (that is reserved for a genuine `status:"reverted"` receipt) (covers Major 2 / spec §5.8 v3.2 M3 default branch — G3/G8)
   - after the timeout case, re-reading the row later still shows `submitted` (nothing downgraded it to failed) (covers §7 G3 timeout-never-failed)
   - the fake signer records `timeoutMs === deadlineSeconds × 1000` (default 1200s) (covers §7 G3/G4 receipt bound; decision 19)
 
 **Expected first-run failure:** timeout case red if any conflation exists (e.g. result mapped to `failed`); otherwise apply the deliberate-inversion red check as in T19.
 
-**Implementation surface:** branch in `executeSwap` on `ReceiptOutcome.kind` exactly as typed in T15 — no new symbols.
+**Implementation surface:** branch in `executeSwap` on `ReceiptOutcome.kind` exactly as typed in T15 (`success`/`reverted`/`timeout`/`unknown`) — no new symbols; `timeout` and `unknown` share the stays-`submitted`/`timed_out` mapping, only `reverted` writes `failed`.
+
+**Sequencing note:** T20 modifies `src/coordinator/SwapCoordinator.ts` / `src/services/swapService.ts` (shared with T18) and must run **after T18**; T21 then runs **after T20** (both share the coordinator file — see T21's sequencing note and `tasks.json` `T21.deps`).
 
 **Expected pass criteria:** green; gate green.
 
@@ -837,6 +848,9 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Implementation surface:**
 
 - private field `#tail: Promise<unknown> = Promise.resolve()`; `executeSwap` wraps its body: `const run = this.#tail.then(doWork, doWork); this.#tail = run.catch(() => {}); return run` — single-flight promise-chain mutex per §5.8
+- **Mutex-eviction note (do not overstate in docs):** the `#tail` mutex is an **in-memory, per-live-instance** primitive — it serializes only within one running DO instance and **does not survive DO eviction/hibernation**. Cross-eviction safety rests on the single-in-flight-swap invariant (one wallet) + D1 reconciliation of any `submitted`-stranded row, **not** on the mutex. Record this bound in a code comment; T33's explanation doc carries the same caveat.
+
+**Sequencing note:** T20 and T21 both modify `src/coordinator/SwapCoordinator.ts` (shared with T18), so they must run **sequentially after T18** — T21 depends on **both T18 and T20** (reflected in `tasks.json` `T21.deps = ["T18","T20"]`) so the receipt-disambiguation branch is in place before the mutex wraps it.
 
 **Expected pass criteria:** all three green; T18–T20 still green; gate green.
 
@@ -864,20 +878,21 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 - Assertions:
   - calling tool `get_quote` with `{ direction: "ETH_TO_USDC", amountIn: "1000000000000000000" }` returns `{ content: [{ type: "text", ... }], structuredContent }` where `structuredContent.quotedAmountOut` equals the fixture output — directly reusable as `expectedAmountOut` (covers §7 G3)
   - with `getProps()` returning scopes `[]`, `get_quote` returns the `toErrorEnvelope("forbidden", ...)` shape with `isError: true` (covers §7 G2/G10 scope gate)
+  - with `getProps()` returning `resource !== canonicalMcpUri`, `get_quote` returns the `toErrorEnvelope("forbidden", ...)` shape — the per-registrar `assertAudience` wrapper rejects a foreign-audience token before doing work (covers Major 4 — audience gate at registrar)
   - `get_transaction { id }` surfaces the repo row incl. current `status` (covers §7 G3/G9); unknown id → envelope code `not_found` (covers §7 G10)
   - `list_transactions {}` on 25 seeded rows returns 20 + `nextCursor`; `{ cursor: tampered }` → envelope `invalid_input`; `{ limit: 500 }` capped at 100 (covers §7 G3)
   - a thrown fake-repo error surfaces as envelope code `internal` with no raw message text (covers §7 G10)
-  - registration passes a plain object of Zod validators (ZodRawShape), not `z.object(...)` (scaffolding — spec §5.7 Zod v4 requirement)
+  - registration uses **`server.registerTool(name, { inputSchema }, handler)`** (the current `@modelcontextprotocol/sdk@^1.26` API), **not** the older `server.tool(...)` overload; the schema passed is a plain object of Zod validators (ZodRawShape), not `z.object(...)` (scaffolding — spec §5.7 Zod v4 requirement + SDK ≥1.26)
 
 **Expected first-run failure:** `Cannot find module '../../src/mcp/tools/getQuote'`.
 
 **Implementation surface:**
 
-- `export type ToolDeps = { getProps: () => AuthProps; service: { getQuote: typeof getQuote }; coordinator: { executeSwap(p: ExecuteSwapInput & { userId: string }): Promise<SwapResult> }; repo: TransactionsRepository }`
+- `export type ToolDeps = { getProps: () => AuthProps; canonicalMcpUri: string; service: { getQuote: typeof getQuote }; coordinator: { executeSwap(p: ExecuteSwapInput & { userId: string }): Promise<SwapResult> }; repo: TransactionsRepository }`
 - `export function registerGetQuote(server: McpServer, deps: ToolDeps): void`
 - `export function registerGetTransaction(server: McpServer, deps: ToolDeps): void`
 - `export function registerListTransactions(server: McpServer, deps: ToolDeps): void`
-- each handler: `requireScope(deps.getProps(), "swap:read")` → work → `{ content, structuredContent }`; catch-all → `toErrorEnvelope(classify(e), curatedMessage(code))`
+- each handler: `assertAudience(deps.getProps(), deps.canonicalMcpUri)` → `requireScope(deps.getProps(), "swap:read")` → work → `{ content, structuredContent }`; catch-all → `toErrorEnvelope(classify(e), curatedMessage(code))`. `assertAudience` runs as a per-registrar wrapper alongside `requireScope` on **every** tool (Major 4); `ToolDeps` therefore carries `canonicalMcpUri: string`.
 
 **Expected pass criteria:** green; gate green.
 
@@ -907,6 +922,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
   - input `{ direction, amountIn, expectedAmountOut, slippageTolerancePct, deadlineSeconds }` reaches the fake coordinator verbatim plus `userId: SINGLE_USER_ID` from props (covers §7 G3; decision 23)
   - a fake coordinator returning a confirmed `SwapResult` yields `structuredContent` containing `{ status, result, txHash, actualAmountOut, gasUsed, transactionId }`; a `timed_out` result passes through with `status:"submitted"` (covers §7 G3)
   - fake coordinator throwing `AppError("insufficient_balance")` → envelope code `insufficient_balance`, no raw message (covers §7 G10)
+  - **envelope carries no secret (Major 5):** a fake coordinator throwing an error whose message embeds a private-key/rpc-url string yields a `toErrorEnvelope` whose serialized `content`+`structuredContent` contain **no long-hex run and no secret-name values** — the tool-result envelope is a redacted channel (covers §7 G10 envelope leak channel)
 
 **Expected first-run failure:** `Cannot find module '../../src/mcp/tools/executeSwap'`.
 
@@ -929,23 +945,24 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Files:**
 
 - Create: `src/mcp/SwapMcpAgent.ts`
-- Modify: `wrangler.jsonc` (add DO binding `{ name: "SwapMcpAgent", class_name: "SwapMcpAgent" }` — the `agents` McpAgent convention binds by class name for `.serve()`; this deliberately differs from the SCREAMING_SNAKE names of `SWAP_COORDINATOR`/`RATE_LIMITER` and must NOT be "fixed" for consistency, or `.serve()` cannot find its DO; extend the migrations tag with `new_sqlite_classes: ["SwapMcpAgent"]`), `src/index.ts` (export class), run `pnpm cf-typegen`
+- Modify: `wrangler.jsonc` (add DO binding `{ name: "SwapMcpAgent", class_name: "SwapMcpAgent" }` — the `agents` McpAgent convention binds by class name for `.serve()`; this deliberately differs from the SCREAMING_SNAKE names of `SWAP_COORDINATOR`/`RATE_LIMITER` and must NOT be "fixed" for consistency, or `.serve()` cannot find its DO; extend the migrations for this class addition — boot-safe locally as a grown `v1` array, but a **real deploy needs its own tag (`v2`) and no `wrangler deploy` mid-build** (see T18's migrations-tag deploy note)), `src/index.ts` (export class), run `pnpm cf-typegen`
 - Test: `test/workers/mcp-agent.test.ts`
 
 **Test contract:**
 
 - File: `test/workers/mcp-agent.test.ts`
-- Test names: `init registers exactly the four tools`, `getProps is a live thunk over this.props`, `agent boots as a SQLite-backed DO`
+- Test names: `init registers exactly the four tools`, `getProps is a live thunk over this.props`, `a tool call with a foreign props.resource returns forbidden`, `agent boots as a SQLite-backed DO`
 - Assertions:
   - after `init()`, the agent's `server` lists tools exactly `["get_quote","execute_swap","list_transactions","get_transaction"]` (covers §7 G3 tool surface; via `runInDurableObject` or direct instance construction)
   - mutating the props the agent holds between two tool invocations changes what the handler's `getProps()` observes — the thunk is `() => this.props`, never a value captured at init (covers §5.7 live-thunk requirement — G2/G3)
+  - **audience wiring:** with `getProps()` returning `props.resource !== CANONICAL_MCP_URI` (e.g. `https://attacker.example/mcp`), any tool call (e.g. `get_quote`) returns the `toErrorEnvelope("forbidden", …)` shape — `assertAudience` is applied as a **per-registrar wrapper alongside `requireScope`**, so a foreign-audience token is rejected on every tool, not only at transport (covers Major 4 — audience wiring in tool dispatch, §5.5(b))
   - the DO binding exists and `env.SwapMcpAgent.idFromName("test")` yields a stub (scaffolding for G1)
 
 **Expected first-run failure:** `Cannot find module '../../src/mcp/SwapMcpAgent'` / missing binding boot error.
 
 **Implementation surface:**
 
-- `export class SwapMcpAgent extends McpAgent<CloudflareBindings, unknown, AuthProps> { server = new McpServer({ name: "swap-mcp", version: "1.0.0" }); async init(): Promise<void> }` — `init()` builds request-invariant deps (validateEnv, drizzle repo, engine clients, coordinator stub factory) and calls the four registrars with `getProps: () => this.props`
+- `export class SwapMcpAgent extends McpAgent<CloudflareBindings, unknown, AuthProps> { server = new McpServer({ name: "swap-mcp", version: "1.0.0" }); async init(): Promise<void> }` — `init()` builds request-invariant deps (validateEnv, drizzle repo, engine clients, coordinator stub factory) and calls the four registrars with `getProps: () => this.props`. **`assertAudience(props, CANONICAL_MCP_URI)` is applied as a per-registrar wrapper alongside `requireScope`** (each handler runs `assertAudience` on `deps.getProps()` before its scope check), so audience is enforced in tool dispatch, not merely at transport (Major 4). The `transportGuard` runs earlier on the agent's fetch path (asserted end-to-end in T31/T32).
 
 **Expected pass criteria:** green; gate green.
 
@@ -1069,7 +1086,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Files:**
 
 - Create: `src/ratelimit/RateLimiter.ts`
-- Modify: `wrangler.jsonc` (DO binding `RATE_LIMITER` → class `RateLimiter`; extend migrations with `new_sqlite_classes: ["RateLimiter"]`), `src/index.ts` (export class), `pnpm cf-typegen`
+- Modify: `wrangler.jsonc` (DO binding `RATE_LIMITER` → class `RateLimiter`; extend migrations for this class addition — boot-safe locally as a grown `v1` array, but a **real deploy needs its own tag (`v3`) and no `wrangler deploy` mid-build**, see T18's migrations-tag deploy note), `src/index.ts` (export class), `pnpm cf-typegen`
 - Test: `test/workers/rate-limiter.test.ts`
 
 **Test contract:**
@@ -1150,10 +1167,12 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Test contract:**
 
 - File: `test/workers/consent-post.test.ts` (fake `OAUTH_PROVIDER` helpers with a spying `completeAuthorization`; real `RateLimiter` DO; real `OAUTH_KV`)
-- Test names: `disallowed Origin is rejected`, `invalid or replayed csrf token is rejected before the passphrase is evaluated`, `rate limiter is consulted before the passphrase compare and 429s when exhausted`, `correct passphrase completes authorization with exact props`, `wrong passphrase re-renders with error, mints nothing and consumes a failure`, `IP is read only from CF-Connecting-IP`
+- Test names: `POST with both Origin and Referer absent is rejected before CSRF and passphrase`, `disallowed Origin is rejected`, `invalid or replayed csrf token is rejected before the passphrase is evaluated`, `csrf nonce is consumed on every outcome and a replay is rejected`, `rate limiter is consulted before the passphrase compare and 429s when exhausted`, `correct passphrase completes authorization with exact props`, `wrong passphrase re-renders with error, mints nothing and consumes a failure`, `IP is read only from CF-Connecting-IP`
 - Assertions:
+  - POST with **both** `Origin` and `Referer` headers absent → rejected (403) **before** CSRF verification and passphrase compare; passphrase-compare spy shows zero invocations (covers §5.6 strict Origin/Referer — the **Origin allowlist is the load-bearing cross-site control**, CSRF token is replay protection not session-binding — G2)
   - POST with Origin outside `allowedOrigins` → 403; passphrase-compare spy shows zero invocations (covers §5.6 Origin allowlist — G2)
   - POST with missing/invalid/replayed CSRF token → rejection; a spy on the passphrase-compare seam proves it was **never called** (covers §7 G2 CSRF-before-passphrase)
+  - **the CSRF nonce is consumed on ANY POST outcome** (Origin pass → CSRF-verify path): whether the passphrase later matches or mismatches, the nonce is deleted, so re-submitting the same nonce a second time is **rejected as a replay** (covers §7 G2 single-use nonce — nonce consumed on every outcome, replay rejected)
   - after exhausting the per-IP budget via the real `RateLimiter`, the next POST returns HTTP 429 with envelope code `rate_limited` and the compare spy untouched (covers §7 G2 429-without-evaluating-passphrase)
   - correct passphrase (compared via `timingSafeEqualDigest` — asserted by spying the seam): `completeAuthorization` called once with `props` exactly `{ userId: SINGLE_USER_ID, scopes: ["swap:read","swap:write"], resource: <CANONICAL_MCP_URI> }` — `JSON.stringify(props)` contains no passphrase/key material (covers §7 G2 props content + no-secret + SHA-256-then-constant-time); `recordSuccess` called on the limiter
   - wrong passphrase: re-rendered form with an error message, `completeAuthorization` not called, limiter failure consumed (covers §7 G2 wrong-passphrase path)
@@ -1161,14 +1180,14 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 
 **Expected first-run failure:** 404 on POST `/authorize`.
 
-**Implementation surface:** `publicApp.post("/authorize", ...)` implementing the strict order: Origin/Referer allowlist → CSRF verify+consume → resource validation → `env.RATE_LIMITER` `checkAndConsume(CF-Connecting-IP)` → `timingSafeEqualDigest(submitted, getAuthPassphrase())` → on match `completeAuthorization` + `recordSuccess`, redirect; on mismatch re-render. Grants scopes `["swap:read","swap:write"]` unconditionally — hardcoded, never derived from the client's requested scopes (Resolved planning choice 1, interview decision 26; spec §5.6 literal).
+**Implementation surface:** `publicApp.post("/authorize", ...)` implementing the strict order: **reject when BOTH `Origin` and `Referer` are absent**, then Origin allowlist (the load-bearing cross-site control) → CSRF verify+consume (nonce deleted on any outcome, so replay is rejected) → resource validation → `env.RATE_LIMITER` `checkAndConsume(CF-Connecting-IP)` → `timingSafeEqualDigest(submitted, getAuthPassphrase())` → on match `completeAuthorization` + `recordSuccess`, redirect; on mismatch re-render. Grants scopes `["swap:read","swap:write"]` unconditionally — hardcoded, never derived from the client's requested scopes (Resolved planning choice 1, interview decision 26; spec §5.6 literal).
 
-**Expected pass criteria:** all six green; gate green.
+**Expected pass criteria:** all cases green; gate green.
 
 - [ ] **Step 1:** Write the failing test covering the assertions above.
 - [ ] **Step 2:** Run test, confirm 404-on-POST failure.
 - [ ] **Step 3:** Implement the consent POST handler with the strict ordered gate chain.
-- [ ] **Step 4:** Run test, confirm all six green (T29 still green).
+- [ ] **Step 4:** Run test, confirm all cases green (T29 still green).
 - [ ] **Step 5:** Run full gate.
 - [ ] **Step 6:** Commit. Message: `feat(oauth): consent POST with ordered CSRF, rate-limit and timing-safe passphrase gates`. Body: `TDD: test/workers/consent-post.test.ts written before the consent POST handler.`
 
@@ -1188,7 +1207,7 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 - File: `test/integration/oauth-happy.test.ts`
 - Test names: `well-knowns and register resolve publicly`, `unauthenticated /mcp and /api are rejected`, `healthz is public and constant`, `the full consent dance mints a token accepted by both surfaces`
 - Assertions:
-  - `GET /.well-known/oauth-authorization-server` → 200 JSON; `POST /register` accepts a client (open DCR — decision 24) (covers §7 G1)
+  - **every metadata document the provider serves resolves:** `GET /.well-known/oauth-authorization-server` → 200 JSON **and** `GET /.well-known/oauth-protected-resource` → 200 JSON (both the authorization-server and protected-resource metadata Claude's connector discovery needs); `POST /register` accepts a client (open DCR — decision 24) (covers §7 G1 well-knowns)
   - `GET /api/transactions` and `POST /mcp` (JSON-RPC initialize) without a bearer → 401 (covers §7 G1)
   - `GET /healthz` → 200 `{"status":"ok"}` through the real default export (covers §7 G1)
   - `mintToken()` succeeds with the correct passphrase, allowed Origin and valid CSRF; the token then (a) authorizes `POST /mcp` JSON-RPC `initialize` + `tools/list` (with `MCP-Protocol-Version` + allowed Origin headers) listing the four tools, and (b) authorizes `GET /api/transactions` → 200 (covers §7 G1/G2 both-surfaces acceptance)
@@ -1218,31 +1237,44 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Files:**
 
 - Test: `test/integration/oauth-negative.test.ts` (fixes land in existing modules if red beyond expectation)
-- Create: `test/helpers/mintTestToken.ts` — test-only props-injection minting (`mintTestToken({ scopes })` writes token props directly through the OAuthProvider test seam/KV; exists ONLY because the production consent flow always grants both scopes per decision 26)
+- Test: `test/workers/scope-seam.test.ts` — workers-pool read-only-token rejection at the app-owned auth seam (replaces the deleted KV-injection helper)
 
-**Test contract:**
+> **BLOCKER fix — no token-forging seam.** The earlier `test/helpers/mintTestToken.ts` KV props-injection helper is **deleted and must not be created**: `@cloudflare/workers-oauth-provider` end-to-end-encrypts grant props under the access token as key material, so no forged read-only bearer is decryptable and forcing a seam would be a real bypass of `completeAuthorization`. Decision 26 stands — the **production consent flow always grants both scopes** and no narrower token is mintable. Write-path rejection is instead proven at the **app-owned seam** (fake `deps.getProps → { scopes: ["swap:read"] }`) against the real registrar and the real route.
 
-- File: `test/integration/oauth-negative.test.ts`
-- Test names: `consent POST without a valid csrf token is rejected before passphrase evaluation`, `foreign resource at authorize is rejected`, `sixth failed passphrase from one IP returns 429`, `a swap:read-only token is rejected by execute_swap and POST /api/swap`, `minted token props carry no secret`, `redaction leak test end-to-end`
+**Test contract (workers-pool scope seam — `test/workers/scope-seam.test.ts`):**
+
+- Test names: `read-only props are rejected by the real registerExecuteSwap registrar`, `read-only props are rejected by the real POST /api/swap route`, `read props still succeed on read paths`
+- Assertions:
+  - the **real `registerExecuteSwap`** registrar (T23), invoked with `deps.getProps` faked to return `{ scopes: ["swap:read"] }`, returns the `toErrorEnvelope("forbidden", …)` shape and the fake coordinator spy is untouched (covers §7 G2/G10 read-only rejection at the tool registrar)
+  - the **real `POST /api/swap`** route (T26) exercised via the T25 props-adapter seam with `props.scopes = ["swap:read"]` → HTTP 403 forbidden envelope, coordinator spy untouched (covers §7 G2/G4 read-only rejection at the REST route)
+  - the same read-only props **succeed** on `POST /api/quote` and the `get_quote` registrar (read paths still work — the gate is scope-specific, not a blanket denial) (covers §7 G2 read-path parity)
+
+**Test contract (integration — `test/integration/oauth-negative.test.ts`):**
+
+- Test names: `consent POST without a valid csrf token is rejected before passphrase evaluation`, `foreign resource at authorize is rejected`, `POST /mcp with a disallowed Origin is rejected before dispatch`, `POST /mcp with a missing MCP-Protocol-Version is rejected before dispatch`, `sixth failed passphrase from one IP returns 429`, `429 recovers after the rate-limit window expires`, `minted token props carry no secret`, `redaction leak test end-to-end`, `G9 REST mid-swap visibility shows submitted before the swap resolves`, `get_quote output is accepted verbatim as expectedAmountOut`
 - Assertions:
   - replaying/omitting the CSRF token on the real `POST /authorize` → rejection; a subsequent GET+valid dance still works (covers §7 G2 CSRF integration path)
   - authorize request with `resource=https://attacker.example/mcp` → rejected; no token mintable (covers §7 G2 foreign-resource)
+  - `POST /mcp` (bearer valid) with an Origin **not** in `ALLOWED_ORIGINS` → rejected by `transportGuard` **before** tool dispatch (no coordinator/service call happens); and `POST /mcp` with the `MCP-Protocol-Version` header **absent** → rejected before dispatch (covers Major 4 — transport-guard wiring proven on the `/mcp` path, §5.5(a))
   - five wrong-passphrase POSTs from `CF-Connecting-IP: 9.9.9.9` then a sixth → HTTP 429 `rate_limited` (covers §7 G2 429-after-limit via the real `RateLimiter`)
-  - a `swap:read`-only token minted via the **test-only props-injection helper** (`mintTestToken({ scopes: ["swap:read"] })` in `test/helpers/` — writes token props directly through the OAuthProvider test seam/KV, never via the production consent flow, which always grants both scopes per decision 26) → the token succeeds on `GET /api/transactions` but `POST /api/swap` → 403 and the MCP `execute_swap` tool call returns the `forbidden` envelope (covers §7 G2/G4 read-only-token rejected by every write path)
-  - decoding what the surfaces echo of identity (e.g. a transactions row's `userId`, MCP tool behavior) never exposes the passphrase or any secret; a forced `internal` error response body contains no long hex and no secret-name values (covers §7 G2 no-secret props + §7 G10 integration leak test)
+  - after the 429, advancing the injected `RateLimiter` clock past the 10-minute window lets a subsequent correct-passphrase dance from the same IP mint a token again — window-expiry recovery, operator not permanently locked out (covers §7 G2 window-expiry recovery)
+  - **G9 REST mid-swap visibility:** fire `POST /api/swap` **unawaited** with a fake signer parked in `waitForReceipt`, then `GET /api/transactions/:id` over `exports.default.fetch()` returns `status:"submitted"` (with `txHash`) **before** the swap `POST` promise resolves — the REST surface half of G9, mirroring the workers-pool `get_transaction` proof in T21 (covers §7 G9 REST integration half — Major 3)
+  - the read-only-token write-path rejection is covered by the workers-pool scope-seam test above (no token forging here); the integration suite asserts only the always-both-scopes production token works on every surface (covers §7 G2/G4 — decision 26)
+  - decoding what the surfaces echo of identity (e.g. a transactions row's `userId`, MCP tool behavior) never exposes the passphrase or any secret; a forced `internal` error response body contains **no long hex and no secret-name values** (envelope carries no secret) (covers §7 G2 no-secret props + §7 G10 integration leak test)
+  - a `get_quote` result's `quotedAmountOut` fed **verbatim** as the `expectedAmountOut` of a subsequent `execute_swap` is accepted (byte-identical reuse) (covers §7 G3 reusable-floor — optional scope nit)
 
-**Expected first-run failure:** these exercise already-built behavior — apply the deliberate-inversion red check (invert one assertion, watch it fail, restore) per T19's note; any genuine red is a defect fixed in the named modules.
+**Expected first-run failure (coverage-ratchet / regression-pin task — sanctioned exemption from watch-it-fail; this plan is the human authorisation):** the scope-seam and most integration assertions exercise already-built behavior, so they are **regression pins**, not Iron-Law red. The new transport-guard and G9-REST assertions may genuinely fail if wiring is missing (fix in the named modules). Do not claim Iron-Law red for the regression-pin assertions; the deliberate-inversion check (invert one assertion, watch it fail for the right reason, restore) is used only to confirm the pin bites.
 
-**Implementation surface:** none expected.
+**Implementation surface:** none expected beyond wiring fixes surfaced by the transport-guard / G9-REST assertions.
 
 **Expected pass criteria:** all green; gate green.
 
-- [ ] **Step 1:** Write the failing test; apply the deliberate-inversion red check.
-- [ ] **Step 2:** Confirm the inverted assertion fails as expected; restore it.
-- [ ] **Step 3:** Fix any genuine defect surfaced (none expected).
-- [ ] **Step 4:** Run test, confirm all green.
+- [ ] **Step 1:** Write both failing tests — `test/workers/scope-seam.test.ts` (read-only rejection at the real registrar + real route) and `test/integration/oauth-negative.test.ts` (incl. the transport-guard, window-expiry, G9-REST, and verbatim-floor assertions); apply the deliberate-inversion red check to confirm each regression pin bites.
+- [ ] **Step 2:** Confirm the inverted assertion fails as expected; restore it. Confirm the transport-guard / G9-REST assertions are genuinely red if their wiring is missing.
+- [ ] **Step 3:** Fix any genuine wiring defect surfaced (transport-guard on `/mcp`, G9 REST visibility) in the named modules.
+- [ ] **Step 4:** Run tests, confirm all green.
 - [ ] **Step 5:** Run full gate.
-- [ ] **Step 6:** Commit. Message: `test(integration): negative oauth, rate-limit, scope and redaction paths`. Body: `TDD: test/integration/oauth-negative.test.ts drives the full worker via exports.default.fetch().`
+- [ ] **Step 6:** Commit. Message: `test(integration): negative oauth, rate-limit, transport-guard, scope-seam and redaction paths`. Body: `TDD: test/workers/scope-seam.test.ts and test/integration/oauth-negative.test.ts drive the app-owned seam and the full worker via exports.default.fetch(); read-only rejection proven at the registrar/route (no token forging).`
 
 ---
 
@@ -1252,21 +1284,23 @@ Test tree: `test/node/**` (node pool — pure logic), `test/workers/**` (workers
 **Files:**
 
 - Create: `docs/tutorials/getting-started.md` — tutorial: stand up locally (`pnpm install`, `pnpm dev`), mint a token via the OAuth dance, run a mocked quote
-- Create: `docs/how-to/configure-secrets-and-deploy.md` — how-to: set the four secrets via `wrangler secret put`, replace placeholder KV/D1/DO ids, deploy, run the smoke script
+- Create: `docs/how-to/configure-secrets-and-deploy.md` — how-to: set the four secrets via `wrangler secret put`, replace placeholder KV/D1/DO ids, deploy, run the smoke script; **must note the DO migrations-tag deploy rule** (one migration tag per DO class — `v1` SwapCoordinator, `v2` SwapMcpAgent, `v3` RateLimiter — and never `wrangler deploy` mid-build) **and the global-rate-limit lockout tradeoff** (the 20-failure global budget can briefly lock all operators out; it self-recovers after the 10-minute window expires)
 - Create: `docs/how-to/one-time-usdc-approval.md` — how-to: run the one-time legacy USDC→Universal Router `approve` out-of-band (the service never auto-sends it; `approval_required` recovery)
 - Create: `docs/how-to/reconcile-stranded-submitted.md` — the named reconciliation runbook: look up the recorded `txHash` on-chain, determine the real outcome, mark the row `confirmed` (with `actualAmountOut`/`gasUsed`) or `failed` (with `errorCode`); **must state that a `pending` row with no `txHash` is safe to mark `failed`**
 - Create: `docs/reference/api-and-data-model.md` — reference: MCP tool schemas (incl. optional `expectedAmountOut`, cursor, `result` field), the four REST endpoints, `swaps` columns + status lifecycle, the full 11-code error allowlist
-- Create: `docs/explanation/architecture-decisions.md` — explanation: why OAuthProvider + McpAgent, RateLimiter DO over KV, SwapCoordinator serialization, drift-floor semantics (caller floor vs API-embedded floor), the `approval_required` no-auto-send stance, custodial trade-offs, why `timed_out` is a call result not a row status
+- Create: `docs/explanation/architecture-decisions.md` — explanation: why OAuthProvider + McpAgent, RateLimiter DO over KV, SwapCoordinator serialization, drift-floor semantics (caller floor vs API-embedded floor), the `approval_required` no-auto-send stance, custodial trade-offs, why `timed_out` is a call result not a row status; **must explain the in-DO mutex is per-live-instance and does not survive DO eviction/hibernation — cross-eviction safety rests on the single-in-flight-swap invariant + D1 reconciliation, not the mutex** (do not overstate the mutex's guarantee)
 - Test: `test/node/docs-presence.test.ts`
 
 **Test contract:**
 
 - File: `test/node/docs-presence.test.ts` (fs-based presence/content check — the concrete form of §7 G13's "integration presence check")
-- Test names: `one artifact exists per Diátaxis quadrant`, `the reconciliation runbook exists by its spec-mandated name and notes the pending-row rule`, `the one-time approval how-to exists`, `reference covers the full error allowlist`
+- Test names: `one artifact exists per Diátaxis quadrant`, `the reconciliation runbook exists by its spec-mandated name and notes the pending-row rule`, `the one-time approval how-to exists`, `reference covers the full error allowlist`, `the explanation doc carries the mutex-eviction caveat`, `the deploy how-to carries the migrations-tag and global-lockout notes`
 - Assertions:
   - each of the six files above exists and is non-empty (covers §7 G13 one-per-quadrant + named artifacts)
   - `docs/how-to/reconcile-stranded-submitted.md` contains the phrase matching /pending.*no.*txHash.*safe.*failed/i (covers §7 G13 pending-row note)
   - `docs/reference/api-and-data-model.md` mentions every member of `ERROR_CODES` (imported from `src/errors.ts` so the doc can never drift silently) (covers §7 G13/G10)
+  - `docs/explanation/architecture-decisions.md` contains the mutex-eviction caveat (matches /mutex.*(evict|hibernat)/i) — the mutex is per-live-instance, cross-eviction safety rests on single-in-flight + D1 reconciliation (covers the T21 mutex-eviction doc bullet)
+  - `docs/how-to/configure-secrets-and-deploy.md` contains the migrations-tag deploy rule (matches /migration.*tag/i) and the global-lockout tradeoff note (covers the T28/T33 ops-doc notes)
 
 **Expected first-run failure:** `ENOENT` — docs files absent.
 
@@ -1323,14 +1357,14 @@ Every §2 goal and §7 acceptance criterion → covering task(s). (§7 criteria 
 | Goal / AC | Covering tasks |
 |---|---|
 | **G1** — OAuthProvider default export; `/mcp` + `/api` reject without bearer; constant `/healthz`; well-knowns | T27 (healthz constant/no-oracle), T31 (default export, well-knowns, unauthenticated rejection, both surfaces) |
-| **G2** — consent dance, CSRF-before-passphrase, foreign-resource rejection, props content + no secret, SHA-256-then-constant-time, RateLimiter 5/IP + 20 global + concurrency + window expiry + CF-Connecting-IP, read-only token rejected by write paths | T6 (compare), T7 (scope gate), T28 (all RateLimiter budgets/concurrency/expiry), T29 (CSRF binding + display + redirect/resource validation), T30 (ordered gate chain, props, IP source, wrong-passphrase), T31 (token accepted by both surfaces), T32 (integration CSRF/foreign-resource/429/read-only/no-secret) |
+| **G2** — consent dance, strict Origin/Referer + CSRF-before-passphrase (single-use nonce, replay-rejected), foreign-resource rejection, transport-guard + audience wiring, props content + no secret, SHA-256-then-`timingSafeEqual`, RateLimiter 5/IP + 20 global + concurrency + window expiry + CF-Connecting-IP, read-only token rejected by write paths at the app-owned seam (no token forging) | T6 (constant-time compare via `crypto.subtle.timingSafeEqual`), T7 (scope gate), T24 (audience per-registrar wrapper), T28 (all RateLimiter budgets/concurrency/expiry), T29 (CSRF binding + display + redirect/resource validation), T30 (strict Origin/Referer, ordered gate chain, nonce-consumed-any-outcome, props, IP source, wrong-passphrase), T31 (token accepted by both surfaces, both well-knowns), T32 (workers-pool scope-seam read-only rejection at real registrar+route; integration CSRF/foreign-resource/transport-guard/429/window-recovery/no-secret) |
 | **G3** — get_quote reusable/no-write; execute_swap terminal payload; drift both branches; approval_required; timeout stays submitted + `timed_out`, no fifth status; revert distinct; list/get; pagination + tampered cursor | T8 (no fifth status in schema), T10/T11 (cursor + pagination), T12 (drift math both branches), T16 (get_quote form/no-write), T17 (drift/approval/terminal payload), T19 (workers-pool abort proofs), T20 (timeout vs revert, deadline bound), T22 (read tools + pagination + tamper), T23 (execute_swap payload + floor forwarding) |
 | **G4** — REST mirror payload/scope parity, expectedAmountOut, timed_out passthrough, props-adapter, pagination | T25 (props adapter + status mapping), T26 (all four routes incl. read-only rejection, floor, timeout, pagination), T32 (integration write-path rejection) |
 | **G5** — EXACT_INPUT/CLASSIC/string chain ids/sentinel; routing assertion + routing-aware accessor; spread `/swap` + null-permit strip; 8s timeout; retry policy; direction-aware balances + gas headroom; receipt success vs revert; address-constants test | T9 (constants), T13 (shapes/assertion/accessor/spread/sentinel), T14 (timeout/retry/never-`/swap`), T15 (balances, receipt outcomes), T17 (gas headroom in orchestration) |
 | **G6** — slippage cap/default, amount>0, insufficient_balance direction/gas-aware, deadline default, caller-floor abort pre-submission, approval_required pre-submission | T12 (pure rails), T17 (orchestrated rails + aborts), T19 (workers-pool proof) |
 | **G7** — concurrent execute_swap serialized by in-DO promise-chain mutex; no overlapping submit; nonce order | T21 (dedicated concurrency test), T15/T20 (receipt disambiguation feeding G7's row) |
 | **G8** — one row per attempt; pending→submitted→confirmed; revert → failed/swap_failed + txHash; aborts → failed + errorCode + no txHash; timeout leaves submitted + txHash; lifecycle columns | T8 (schema/columns), T11 (transitions/dispositions), T17 (service-level), T18 (happy lifecycle in D1), T19 (abort dispositions in D1), T20 (timeout/revert rows) |
-| **G9** — mid-swap `submitted` visible before execute_swap returns; live reads | T18 (eager-write proof), T21 (dedicated interleaving test), T22/T26 (live get paths) |
+| **G9** — mid-swap `submitted` visible before execute_swap returns; live reads | T18 (eager-write proof), T21 (dedicated workers-pool interleaving test), T22/T26 (live get paths), T32 (REST integration half — `GET /api/transactions/:id` shows `submitted` before the unawaited `POST /api/swap` resolves) |
 | **G10** — closed allowlist (`quote_expired` absent, `approval_required` present); no raw messages; log/envelope leak tests | T3 (allowlist/classify/envelope), T4 (redaction + leak tests), T22/T23 (envelope-only tool errors), T25/T26 (HTTP mapping), T32 (integration leak test) |
 | **G11** — `pnpm test` with zero network; `pnpm typecheck` clean; smoke exists, manual-only | every task's gate; global mocking constraint; T34 (smoke presence + suite exclusion) |
 | **G12** — placeholder-only bindings, `nodejs_compat` uncommented, cf-typegen succeeds; fail-closed env | T2 (wrangler + typegen + canary), T5 (validateEnv), T18/T24/T28 (DO bindings kept placeholder, typegen re-run) |

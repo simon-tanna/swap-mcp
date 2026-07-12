@@ -100,7 +100,7 @@
       "domain": "general-purpose",
       "file_targets": [
         "src/auth/constantTime.ts",
-        "test/node/constant-time.test.ts"
+        "test/workers/constant-time.test.ts"
       ],
       "deps": [
         "T1"
@@ -608,7 +608,7 @@
       "domain": "general-purpose",
       "file_targets": [
         "test/integration/oauth-negative.test.ts",
-        "test/helpers/mintTestToken.ts"
+        "test/workers/scope-seam.test.ts"
       ],
       "deps": [
         "T31"
