@@ -256,11 +256,11 @@
       "deps": [
         "T13"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "d2c3a5ad2e5b35e2adbd34144f3f9c95c5913a26",
       "task_start_sha": "5c423c3",
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "d2c3a5ad2e5b35e2adbd34144f3f9c95c5913a26",
+      "quality_review_sha": "d2c3a5ad2e5b35e2adbd34144f3f9c95c5913a26",
       "blocker_count": 0
     },
     {
