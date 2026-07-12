@@ -434,9 +434,9 @@
       "deps": [
         "T22"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "commit_sha": null,
-      "task_start_sha": null,
+      "task_start_sha": "fc4f6957c8a5dc11b1cb6dc0bc386b526b5d89e5",
       "spec_review_sha": null,
       "quality_review_sha": null,
       "blocker_count": 0
