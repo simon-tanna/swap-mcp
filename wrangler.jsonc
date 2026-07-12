@@ -34,6 +34,22 @@
       "migrations_dir": "drizzle",
     },
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SWAP_COORDINATOR",
+        "class_name": "SwapCoordinator",
+      },
+    ],
+  },
+  // A single `v1` tag whose `new_sqlite_classes` grows across later tasks; SQLite-backed
+  // DOs are required for the eager D1 lifecycle writes.
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SwapCoordinator"],
+    },
+  ],
   // "r2_buckets": [
   //   {
   //     "binding": "MY_BUCKET",
