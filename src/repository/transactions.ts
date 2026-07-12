@@ -29,18 +29,28 @@ export type NewSwapInput = Omit<
 
 /** Persistence port for swap lifecycle rows: insert, state transitions, lookup, and paged listing. */
 export interface TransactionsRepository {
+  /** Insert a new row in `pending` state with a generated id; returns that id. */
   insertPending(row: NewSwapInput): Promise<string>;
+  /** Transition a row to `submitted`, recording the broadcast tx hash and submit time. */
   markSubmitted(id: string, txHash: string): Promise<void>;
+  /** Transition a row to `confirmed`, recording actual output, gas used, and settle time. */
   markConfirmed(
     id: string,
     r: { actualAmountOut: string; gasUsed: string },
   ): Promise<void>;
+  /** Transition a row to `failed` with an error code; records `txHash` only when the swap reached the chain (omit it for pre-submit aborts, which clears it). */
   markFailed(
     id: string,
     errorCode: ErrorCode,
     opts?: { txHash?: string },
   ): Promise<void>;
+  /** Return the current row for `id`, or `undefined` when none exists. */
   findById(id: string): Promise<SwapRow | undefined>;
+  /**
+   * Return a page of rows newest-first by `(createdAt, id)`. `limit` defaults to 20 and caps at
+   * 100; `status` filters by lifecycle state; `cursor` resumes after a prior page. `nextCursor` is
+   * null on the final page. Throws `AppError("invalid_input")` on a tampered or malformed cursor.
+   */
   list(q: {
     limit?: number;
     cursor?: string;
@@ -51,7 +61,11 @@ export interface TransactionsRepository {
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
-/** Construct a TransactionsRepository backed by the given drizzle D1 client. */
+/**
+ * Build a {@link TransactionsRepository} over the given drizzle D1 client. See the interface for
+ * each method's contract; this implementation stamps `submittedAt`/`settledAt` on transitions and,
+ * in `list`, clamps `limit` to 1–100 and treats `cursor` as an opaque, tamper-checked token.
+ */
 export function createTransactionsRepository(
   db: DrizzleD1Database<typeof schema>,
 ): TransactionsRepository {
