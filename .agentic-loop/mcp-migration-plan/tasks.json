@@ -200,11 +200,11 @@
         "T8",
         "T10"
       ],
-      "status": "in-progress",
-      "commit_sha": null,
+      "status": "done",
+      "commit_sha": "899682a",
       "task_start_sha": null,
-      "spec_review_sha": null,
-      "quality_review_sha": null,
+      "spec_review_sha": "2518d8a",
+      "quality_review_sha": "899682a",
       "blocker_count": 0
     },
     {
