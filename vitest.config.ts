@@ -1,3 +1,4 @@
+import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -8,6 +9,15 @@ export default defineConfig({
           name: "node",
           include: ["test/node/**/*.test.ts"],
           environment: "node",
+        },
+      },
+      {
+        plugins: [
+          cloudflareTest({ wrangler: { configPath: "./wrangler.jsonc" } }),
+        ],
+        test: {
+          name: "workers",
+          include: ["test/workers/**/*.test.ts"],
         },
       },
     ],
