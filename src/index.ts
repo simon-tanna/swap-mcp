@@ -79,12 +79,24 @@ const apiApp = {
  *   (`https://…workers.dev`, no `/mcp` path) so one operator token authorizes
  *   BOTH `/mcp` and `/api/*`: the provider's bearer `audienceMatches` accepts any
  *   path under an origin-only ("/") audience, whereas a path-scoped `.../mcp`
- *   audience would 401 every `/api/*` request. We do NOT set `resourceMetadata`:
- *   the provider auto-derives `GET /.well-known/oauth-protected-resource`'s
- *   `resource` from the request origin (verified: `https://…workers.dev`), so a
- *   real MCP client (Claude connector) reads that doc and sends a matching
- *   origin `resource`, which the consent flow accepts and the audience gate honors.
+ *   audience would 401 every `/api/*` request.
+ * - We MUST set `resourceMetadata.resource` to that origin. In `agents`/provider
+ *   0.8.x the protected-resource metadata is PATH-SCOPED: the `/mcp` 401 challenge
+ *   points clients at `GET /.well-known/oauth-protected-resource/mcp`, and left to
+ *   auto-derive, that document advertises `resource = <origin>/mcp`. A real MCP
+ *   client (Claude connector) then sends `resource=<origin>/mcp`, which the consent
+ *   gate rejects (`Invalid resource`) and which poisons the token audience for
+ *   `/api/*`. Pinning `resourceMetadata.resource` overrides the derivation for the
+ *   root AND the `/mcp`-scoped doc, so the client sends an origin `resource` that
+ *   the consent flow accepts and the audience gate honors on both surfaces.
+ *   `resourceMatchOriginOnly` stays default-`false` and is orthogonal — it governs
+ *   the requested-vs-granted check at token exchange, moot once both are the origin.
+ * - `CANONICAL_MCP_ORIGIN` MUST equal `CANONICAL_MCP_URI` (wrangler.jsonc). It is a
+ *   literal because `OAuthProvider` is constructed at module scope, before `env`
+ *   exists; a drift-guard test asserts the served metadata equals the env var.
  */
+const CANONICAL_MCP_ORIGIN = "https://swap-mcp.simon-tanna.workers.dev";
+
 export default new OAuthProvider({
   apiHandlers: {
     "/mcp": mcpApp,
@@ -95,6 +107,9 @@ export default new OAuthProvider({
   tokenEndpoint: "/token",
   clientRegistrationEndpoint: "/register",
   scopesSupported: ["swap:read", "swap:write"],
+  resourceMetadata: {
+    resource: CANONICAL_MCP_ORIGIN,
+  },
 });
 
 export { SwapMcpAgent, SwapCoordinator, RateLimiter };

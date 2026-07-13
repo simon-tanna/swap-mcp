@@ -15,13 +15,15 @@ function reqWithHeaders(headers: Record<string, string>): Request {
 }
 
 describe("transportGuard", () => {
-  test("enforces Origin allowlist and MCP-Protocol-Version", () => {
+  test("allows an allowlisted Origin", () => {
     const ok = reqWithHeaders({
       Origin: "https://claude.ai",
       "MCP-Protocol-Version": "2025-06-18",
     });
     expect(() => transportGuard(ok, allowedOrigins)).not.toThrow();
+  });
 
+  test("rejects a present-but-disallowed Origin", () => {
     const disallowedOrigin = reqWithHeaders({
       Origin: "https://evil.example",
       "MCP-Protocol-Version": "2025-06-18",
@@ -32,34 +34,21 @@ describe("transportGuard", () => {
     } catch (err) {
       expect(err instanceof AppError && err.code === "forbidden").toBe(true);
     }
-
-    const missingVersion = reqWithHeaders({ Origin: "https://claude.ai" });
-    try {
-      transportGuard(missingVersion, allowedOrigins);
-      throw new Error("expected transportGuard to throw");
-    } catch (err) {
-      expect(err instanceof AppError && err.code === "invalid_input").toBe(
-        true,
-      );
-    }
   });
 
-  test("rejects an empty-string MCP-Protocol-Version header", () => {
-    const emptyVersion = reqWithHeaders({
-      Origin: "https://claude.ai",
-      "MCP-Protocol-Version": "",
-    });
-    expect(() => transportGuard(emptyVersion, allowedOrigins)).toThrow(
-      AppError,
-    );
-    try {
-      transportGuard(emptyVersion, allowedOrigins);
-      throw new Error("expected transportGuard to throw");
-    } catch (err) {
-      expect(err instanceof AppError && err.code === "invalid_input").toBe(
-        true,
-      );
-    }
+  test("allows a request with NO Origin header (server-side MCP client)", () => {
+    // Real remote connectors (Claude/GPT/Grok) send no Origin — the bearer token
+    // authenticates them. Origin is a browser-only DNS-rebinding signal, so its
+    // absence must NOT be rejected. Also: no MCP-Protocol-Version required.
+    const noOrigin = reqWithHeaders({});
+    expect(() => transportGuard(noOrigin, allowedOrigins)).not.toThrow();
+  });
+
+  test("does not require an MCP-Protocol-Version header", () => {
+    // Per the MCP spec the server defaults the version when the header is absent;
+    // the transport negotiates it. The guard must not gate on the header.
+    const missingVersion = reqWithHeaders({ Origin: "https://claude.ai" });
+    expect(() => transportGuard(missingVersion, allowedOrigins)).not.toThrow();
   });
 
   test("rejects an empty allowedOrigins allowlist even for a plausible origin", () => {

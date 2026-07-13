@@ -63,6 +63,31 @@ function effectiveResource(
 }
 
 /**
+ * True iff the request carries EXACTLY the canonical MCP resource, compared by
+ * normalized URL form (`new URL(...).href`) rather than raw string. A spec-compliant
+ * client (e.g. the Claude connector) normalizes the origin it discovers from the
+ * protected-resource metadata, sending `https://host/` (trailing slash) where our
+ * `CANONICAL_MCP_URI` is stored as `https://host` — a raw `!==` would 400 that with
+ * `Invalid resource`. Normalizing collapses that trailing-slash difference while still
+ * rejecting a foreign origin or any path-scoped resource (`.../mcp`), since those
+ * differ in origin or pathname. Absent / multi-valued resource → false (fail-closed).
+ */
+function isCanonicalResource(
+  resource: string | string[] | undefined,
+  canonicalMcpUri: string,
+): boolean {
+  const value = effectiveResource(resource);
+  if (value === null) {
+    return false;
+  }
+  try {
+    return new URL(value).href === new URL(canonicalMcpUri).href;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Render the consent page. The form's `action` preserves the original
  * authorize query string so the POST can re-parse the same AuthRequest that
  * the embedded CSRF token was bound to at issue time.
@@ -143,7 +168,7 @@ publicApp.get("/authorize", async (c) => {
   if (!client.redirectUris.includes(authRequest.redirectUri)) {
     return c.text("Unregistered redirect_uri.", 400);
   }
-  if (effectiveResource(authRequest.resource) !== c.env.CANONICAL_MCP_URI) {
+  if (!isCanonicalResource(authRequest.resource, c.env.CANONICAL_MCP_URI)) {
     return c.text("Invalid resource.", 400);
   }
 
@@ -221,7 +246,7 @@ publicApp.post("/authorize", async (c) => {
 
   // Gate 5: defense-in-depth resource check (the CSRF binding already covers
   // tamper, but the grant must never be minted for a foreign resource).
-  if (effectiveResource(authRequest.resource) !== validated.canonicalMcpUri) {
+  if (!isCanonicalResource(authRequest.resource, validated.canonicalMcpUri)) {
     return c.text("Invalid resource.", 400);
   }
 

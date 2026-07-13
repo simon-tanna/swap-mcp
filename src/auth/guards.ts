@@ -6,15 +6,26 @@ export type AuthProps = { userId: string; scopes: string[]; resource: string };
 /** Stable id of the single DB user; multi-user is a non-goal. */
 export const SINGLE_USER_ID = "single-user";
 
-/** Enforce the Origin allowlist and require an MCP-Protocol-Version header, before OAuth. */
+/**
+ * Cross-origin defense for the `/mcp` transport, applied BEFORE OAuth.
+ *
+ * The `Origin` header is a BROWSER-only signal: a DNS-rebinding / cross-site attack
+ * necessarily originates from browser JavaScript, which always sends `Origin`. So we
+ * validate `Origin` against the allowlist only WHEN it is present. Real remote MCP
+ * clients (Claude/GPT/Grok connectors) run their HTTP client host-side and send NO
+ * `Origin` header — those are authenticated by the bearer token, not by `Origin`, so
+ * an absent `Origin` is allowed through. Requiring `Origin` to be present 403s every
+ * legitimate connector (observed: `user-agent: Claude-User` requests carry no Origin).
+ *
+ * We do NOT gate on `MCP-Protocol-Version` here: per the MCP spec the server defaults
+ * to `2025-03-26` when the header is absent (and the `initialize` request negotiates
+ * the version via its body, not a pre-set header). The MCP transport owns version
+ * handling; a hard presence check would reject spec-compliant clients.
+ */
 export function transportGuard(req: Request, allowedOrigins: string[]): void {
   const origin = req.headers.get("Origin");
-  if (origin === null || !allowedOrigins.includes(origin)) {
+  if (origin !== null && !allowedOrigins.includes(origin)) {
     throw new AppError("forbidden");
-  }
-  const version = req.headers.get("MCP-Protocol-Version");
-  if (!version) {
-    throw new AppError("invalid_input");
   }
 }
 

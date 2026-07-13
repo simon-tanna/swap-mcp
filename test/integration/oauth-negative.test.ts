@@ -174,6 +174,46 @@ describe("OAuthProvider integration negative paths", () => {
     expect(accessToken.length).toBeGreaterThan(0);
   });
 
+  test("a same-origin but path-scoped resource (origin + /mcp) is still rejected at authorize", async () => {
+    const origin = firstAllowedOrigin();
+    // This is the exact pre-fix production failure: the provider's PATH-SCOPED
+    // protected-resource metadata advertised `<origin>/mcp`, so Claude sent THAT
+    // as its `resource`. The fix pins `resourceMetadata.resource` to the origin so
+    // a spec-compliant client discovers and sends the ORIGIN — it does NOT loosen
+    // this gate. Regression-guard that a path-scoped resource on our own origin is
+    // still rejected outright (no consent form, no CSRF nonce, so no code can mint).
+    const { authorizeUrl } = await beginAuthorize({
+      resource: `${workerBase()}/mcp`,
+    });
+
+    const res = await SELF.fetch(authorizeUrl, { headers: { Origin: origin } });
+    expect(res.status).toBe(400);
+    const html = await res.text();
+    expect(html).toContain("Invalid resource");
+    expect(html).not.toContain("csrf_token");
+
+    // The legitimate origin-resource dance from the same client still mints a
+    // token — the rejection is scoped to the path-scoped resource, not a lockout.
+    const { accessToken } = await mintToken();
+    expect(accessToken.length).toBeGreaterThan(0);
+  });
+
+  test("a trailing-slash origin resource (the client's normalized form) is accepted", async () => {
+    const origin = firstAllowedOrigin();
+    // The REAL Claude connector normalizes the origin it discovers from PRM:
+    // `new URL("https://host").href` → "https://host/". `CANONICAL_MCP_URI` is
+    // stored WITHOUT the trailing slash, so a raw string compare 400s this. The
+    // consent gate compares by normalized URL form, so the trailing-slash form is
+    // accepted and the consent page renders.
+    const { authorizeUrl } = await beginAuthorize({
+      resource: `${workerBase()}/`,
+    });
+
+    const res = await SELF.fetch(authorizeUrl, { headers: { Origin: origin } });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("csrf_token");
+  });
+
   test("POST /mcp with a disallowed Origin is rejected before dispatch", async () => {
     const { accessToken } = await mintToken();
     const res = await SELF.fetch(`${workerBase()}/mcp`, {
@@ -202,15 +242,20 @@ describe("OAuthProvider integration negative paths", () => {
     expect(body.error?.code).toBe("forbidden");
   });
 
-  test("POST /mcp with a missing MCP-Protocol-Version is rejected before dispatch", async () => {
+  test("POST /mcp initialize from a server-side client (no Origin, no MCP-Protocol-Version) is accepted", async () => {
     const { accessToken } = await mintToken();
+    // The real remote-connector shape captured from Claude (ua "Claude-User"): a
+    // host-side HTTP client that sends NO Origin header and no pre-set
+    // MCP-Protocol-Version. transportGuard must let this through — the bearer token
+    // is the authentication — and the MCP transport must negotiate the version from
+    // the initialize body. Requiring Origin/version here 403/400s every connector.
     const res = await SELF.fetch(`${workerBase()}/mcp`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
         Accept: "application/json, text/event-stream",
-        Origin: firstAllowedOrigin(),
+        // Deliberately NO Origin and NO MCP-Protocol-Version header.
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
@@ -223,10 +268,9 @@ describe("OAuthProvider integration negative paths", () => {
         },
       }),
     });
-    // transportGuard requires the MCP-Protocol-Version header BEFORE dispatch.
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error?: { code?: string } };
-    expect(body.error?.code).toBe("invalid_input");
+    // Not a guard rejection (would be 403 forbidden / 400 invalid_input): the
+    // transport handles the initialize and returns a JSON-RPC result.
+    expect(res.status).toBe(200);
   });
 
   test("sixth failed passphrase from one IP returns 429", async () => {

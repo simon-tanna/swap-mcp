@@ -49,7 +49,8 @@ The two pool projects apply D1 migrations via `test/setup/apply-migrations.ts` a
 ## Gotchas
 
 - **DO binding names are load-bearing.** `SwapMcpAgent`'s binding name must equal its class name (McpAgent resolves the DO by class name at request time) — do _not_ rename it to SCREAMING_SNAKE. `agents@0.17` `serve()` defaults `binding` to `"MCP_OBJECT"`, which we don't declare, so it must be passed explicitly.
-- **`CANONICAL_MCP_URI` is origin-only** (no `/mcp` path) so one operator token authorizes both `/mcp` and `/api/*`. A path-scoped audience would 401 every `/api/*` request.
+- **`CANONICAL_MCP_URI` is origin-only** (no `/mcp` path) so one operator token authorizes both `/mcp` and `/api/*`. A path-scoped audience would 401 every `/api/*` request (the provider's `handleApiRequest` audience check only treats an origin-only, `"/"`-path audience as covering all paths).
+- **The origin resource is _advertised_, not just auto-derived.** In provider 0.8.x the protected-resource metadata is path-scoped: the `/mcp` 401 points clients at `/.well-known/oauth-protected-resource/mcp`, which auto-derives `resource = <origin>/mcp`. So `src/index.ts` sets `resourceMetadata.resource` to the origin, overriding the derivation for the root AND `/mcp`-scoped docs; without it, Claude sends `resource=<origin>/mcp` and the consent gate returns `Invalid resource`. That literal (`CANONICAL_MCP_ORIGIN`) must stay in sync with `CANONICAL_MCP_URI` — a drift-guard test enforces it. `resourceMatchOriginOnly` stays default-`false` (orthogonal — it only affects the requested-vs-granted check at token exchange).
 
 ## Conventions
 
