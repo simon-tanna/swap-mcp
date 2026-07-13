@@ -7,6 +7,7 @@ import {
 } from "../engine/tradingApiClient";
 import type { ViemSigner } from "../engine/viemSigner";
 import { classify, type ErrorCode } from "../errors";
+import { log, safeError } from "../log";
 import type { TransactionsRepository } from "../repository/transactions";
 import { checkDrift, resolveSwapParams, type ExecuteSwapInput } from "./rails";
 
@@ -199,16 +200,26 @@ export async function executeSwap(
 ): Promise<SwapResult> {
   const { tradingApi, signer, repo } = deps;
 
+  // Structured stage breadcrumbs: allowlisted, non-secret context only. `stage`
+  // is threaded through so the pre-broadcast catch reports WHICH rail threw, and
+  // every failure log carries a secret-safe `safeError` identity (never the raw
+  // error). This is what makes an opaque failure diagnosable in production.
+  const base = { event: "executeSwap", direction: input.direction } as const;
+  const breadcrumb = (stage: string): void => log("info", { ...base, stage });
+
   // 1. Validate shape first — a malformed/zero amount cannot be re-quoted.
+  breadcrumb("validate");
   let params: ReturnType<typeof resolveSwapParams>;
   try {
     params = resolveSwapParams(input);
   } catch (err) {
+    log("error", { ...base, stage: "validate", ...safeError(err) });
     return failBeforeQuote(repo, input, classify(err));
   }
 
   // 2–3. Re-quote immediately before submission, bound to the real signer, and
   // read the output through the routing assertion (non-CLASSIC fails closed).
+  breadcrumb("requote");
   let reQuote: ClassicQuoteResponse;
   let quotedAmountOut: string;
   try {
@@ -220,21 +231,32 @@ export async function executeSwap(
     });
     quotedAmountOut = readQuotedOutput(reQuote);
   } catch (err) {
+    log("error", { ...base, stage: "requote", ...safeError(err) });
     return failBeforeQuote(repo, input, classify(err));
   }
 
   // 4. Persist the pending row with the real quoted output (write-once column).
-  const transactionId = await repo.insertPending({
-    userId: input.userId,
-    direction: params.direction,
-    amountIn: params.amountIn,
-    ...(params.expectedAmountOut !== undefined && {
-      expectedAmountOut: params.expectedAmountOut,
-    }),
-    quotedAmountOut,
-    slippageTolerancePct: String(params.slippageTolerancePct),
-    deadlineSeconds: params.deadlineSeconds,
-  });
+  // A D1 throw here sits OUTSIDE every service try, so it propagates to the
+  // coordinator outer catch (which emits the full `safeError`); log only a
+  // context-only stage tag here to avoid a duplicate payload for one failure.
+  breadcrumb("insert_pending");
+  let transactionId: string;
+  try {
+    transactionId = await repo.insertPending({
+      userId: input.userId,
+      direction: params.direction,
+      amountIn: params.amountIn,
+      ...(params.expectedAmountOut !== undefined && {
+        expectedAmountOut: params.expectedAmountOut,
+      }),
+      quotedAmountOut,
+      slippageTolerancePct: String(params.slippageTolerancePct),
+      deadlineSeconds: params.deadlineSeconds,
+    });
+  } catch (err) {
+    log("error", { ...base, stage: "insert_pending", errorCode: "internal" });
+    throw err;
+  }
 
   const fail = async (errorCode: ErrorCode): Promise<SwapResult> => {
     await repo.markFailed(transactionId, errorCode);
@@ -249,9 +271,12 @@ export async function executeSwap(
 
   let txHash: string;
   let swapTx: Awaited<ReturnType<typeof tradingApi.buildSwap>>;
+  // Tracks the active pre-broadcast rail so the catch can report which one threw.
+  let stage = "drift";
   try {
     // 5. Drift rail: only fires against a caller-supplied floor; when omitted
     // the Trading-API-embedded slippage floor in the calldata is the sole rail.
+    breadcrumb("drift");
     const drift = checkDrift(
       BigInt(quotedAmountOut),
       params.expectedAmountOut !== undefined
@@ -265,7 +290,9 @@ export async function executeSwap(
 
     // 6. Approval gate — only the ERC-20 input direction needs a Universal
     // Router allowance; native ETH input has no allowance concept.
+    stage = "approval";
     if (params.direction === "USDC_TO_ETH") {
+      breadcrumb("approval");
       const { approval } = await tradingApi.checkApproval({
         token: USDC_ADDRESS,
         amount: params.amountIn,
@@ -279,11 +306,15 @@ export async function executeSwap(
 
     // 7. Build the transaction from the spread re-quote; the slippage floor is
     // already embedded in the returned calldata, so no amountOutMinimum here.
+    stage = "build_swap";
+    breadcrumb("build_swap");
     swapTx = await tradingApi.buildSwap(reQuote);
 
     // 8. Balance/gas-headroom rail — after buildSwap so the shortfall check
     // consumes the real gasLimit, before any signing or submission. The buffer
     // is applied to gas in both directions (fee-rise risk is ETH-denominated).
+    stage = "balance_check";
+    breadcrumb("balance_check");
     const gasCost =
       BigInt(swapTx.gasLimit) * (await signer.estimateMaxFeePerGas());
     if (params.direction === "ETH_TO_USDC") {
@@ -310,6 +341,8 @@ export async function executeSwap(
 
     // 9. Sign and submit. Nothing has broadcast until this resolves, so any
     // throw up to here means failing (no txHash) is correct.
+    stage = "sign_submit";
+    breadcrumb("sign_submit");
     txHash = await signer.sendTransaction({
       to: swapTx.to,
       data: swapTx.data,
@@ -317,12 +350,24 @@ export async function executeSwap(
     });
   } catch (err) {
     // Pre-broadcast throw: nothing landed on-chain, so close the row failed.
-    return fail(classify(err));
+    // This RETURNS a SwapResult — it never reaches the coordinator outer catch —
+    // so the failing stage + safe error identity are logged HERE (a raw viem
+    // sendTransaction / RPC error would otherwise vanish into a bare `internal`).
+    const errorCode = classify(err);
+    log("error", {
+      ...base,
+      stage,
+      transactionId,
+      errorCode,
+      ...safeError(err),
+    });
+    return fail(errorCode);
   }
 
   // Post-broadcast region: the tx is live. A bookkeeping write throwing here
   // must NEVER mark the row failed — the outcome is undetermined, so the
   // catch falls through to the submitted/timed_out result.
+  breadcrumb("receipt");
   try {
     await repo.markSubmitted(transactionId, txHash);
 
@@ -367,10 +412,19 @@ export async function executeSwap(
       txHash,
       quotedAmountOut,
     };
-  } catch {
+  } catch (err) {
     // A post-broadcast bookkeeping write (markSubmitted/markConfirmed) threw for
     // a live tx of undetermined outcome: leave the row as-is and report
-    // submitted/timed_out rather than fabricating a `failed` state.
+    // submitted/timed_out rather than fabricating a `failed` state. Tagged
+    // `terminal:false` so this NON-fatal log is not misread as a swap failure —
+    // the tx is live and its outcome is still undetermined.
+    log("error", {
+      ...base,
+      stage: "receipt",
+      terminal: false,
+      transactionId,
+      ...safeError(err),
+    });
     return {
       transactionId,
       status: "submitted",

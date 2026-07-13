@@ -258,3 +258,121 @@ describe("SwapCoordinator abort dispositions", () => {
     }
   });
 });
+
+describe("SwapCoordinator outer-catch diagnostic logging", () => {
+  test("a signer-init (deps construction) throw logs stage:signer_init + errorName, leaking no secret", async () => {
+    const id = env.SWAP_COORDINATOR.idFromName("signer-init-throw");
+    const stub = env.SWAP_COORDINATOR.get(id);
+
+    const rpcUrl = env.ETH_RPC_URL;
+    const privateKey = env.SWAP_PRIVATE_KEY;
+    // Simulate viem's eager privateKeyToAccount blowing up at signer
+    // construction with a message that carries both secrets.
+    const secretMessage = `build failed for ${rpcUrl} key=${privateKey}`;
+
+    const errorSpy = vi.spyOn(console, "error");
+    let threw = false;
+    try {
+      await runInDurableObject(stub, async (instance: SwapCoordinator) => {
+        // Shadow the class `deps` accessor with an own throwing getter, so the
+        // coordinator's `this.deps` read at the signer_init boundary throws.
+        Object.defineProperty(instance, "deps", {
+          configurable: true,
+          get() {
+            throw new Error(secretMessage);
+          },
+        });
+        return instance.executeSwap(ethToUsdcInput());
+      });
+    } catch {
+      threw = true;
+    }
+    // Serialize BEFORE mockRestore() — mockRestore clears the call history.
+    const serialized = errorSpy.mock.calls
+      .map((c) => c.map((a) => String(a)).join(" "))
+      .join(" ");
+    errorSpy.mockRestore();
+
+    // The coordinator re-throws a safe error after logging.
+    expect(threw).toBe(true);
+    expect(serialized).toContain('"stage":"signer_init"');
+    expect(serialized).toContain('"errorName"');
+    expect(serialized).not.toContain(rpcUrl);
+    expect(serialized).not.toContain(privateKey);
+  });
+
+  test("an insertPending (D1) throw reaches the outer catch and logs safeError, leaking no secret", async () => {
+    const id = env.SWAP_COORDINATOR.idFromName("insert-pending-throw");
+    const stub = env.SWAP_COORDINATOR.get(id);
+
+    const rpcUrl = env.ETH_RPC_URL;
+    const privateKey = env.SWAP_PRIVATE_KEY;
+    const secretMessage = `D1 write failed for ${rpcUrl} key=${privateKey}`;
+
+    // insertPending is the FIRST DB write (swapService.ts:227) and sits OUTSIDE
+    // the pre-broadcast try, so its throw propagates to the coordinator outer
+    // catch — the only executeSwap path that reaches it.
+    const throwingRepo = {
+      async insertPending() {
+        throw new Error(secretMessage);
+      },
+    } as unknown as SwapServiceDeps["repo"];
+    const deps = makeDepsWithRepo(fakeSigner(), throwingRepo, fakeTradingApi());
+
+    const errorSpy = vi.spyOn(console, "error");
+    let threw = false;
+    try {
+      await runInDurableObject(stub, async (instance: SwapCoordinator) => {
+        instance.deps = deps;
+        return instance.executeSwap(ethToUsdcInput());
+      });
+    } catch {
+      threw = true;
+    }
+    // Serialize BEFORE mockRestore() — mockRestore clears the call history.
+    const serialized = errorSpy.mock.calls
+      .map((c) => c.map((a) => String(a)).join(" "))
+      .join(" ");
+    errorSpy.mockRestore();
+
+    expect(threw).toBe(true);
+    expect(serialized).toContain('"errorName"');
+    expect(serialized).not.toContain(rpcUrl);
+    expect(serialized).not.toContain(privateKey);
+  });
+
+  test("a pre-broadcast sendTransaction throw logs stage:sign_submit + safeError and still returns the curated failed result", async () => {
+    const id = env.SWAP_COORDINATOR.idFromName("sign-submit-log");
+    const stub = env.SWAP_COORDINATOR.get(id);
+
+    // Native ETH input, no caller floor → execution reaches sendTransaction,
+    // which throws on the pre-broadcast path. This catch RETURNS a SwapResult
+    // (it never reaches the coordinator outer catch — per B3).
+    const signer = fakeSigner({
+      async sendTransaction() {
+        throw new Error("rpc submit exploded MARKER_SIGN");
+      },
+    });
+
+    const errorSpy = vi.spyOn(console, "error");
+    const result = await runInDurableObject(
+      stub,
+      async (instance: SwapCoordinator) => {
+        instance.deps = makeDeps(signer);
+        return instance.executeSwap(ethToUsdcInput());
+      },
+    );
+    const serialized = errorSpy.mock.calls
+      .map((c) => c.map((a) => String(a)).join(" "))
+      .join(" ");
+    errorSpy.mockRestore();
+
+    // Curated failed result (pre-broadcast → no txHash), not a thrown defect.
+    expect(result.status).toBe("failed");
+    expect(result.errorCode).toBe("internal");
+    expect(result.txHash).toBeUndefined();
+    // The service logged the failing stage + a safe error identity.
+    expect(serialized).toContain('"stage":"sign_submit"');
+    expect(serialized).toContain('"errorName"');
+  });
+});

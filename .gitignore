@@ -34,3 +34,6 @@ lerna-debug.log*
 
 # agentic-loop state journal must stay tracked
 !.agentic-loop/**/*.log
+
+.claude
+.agents

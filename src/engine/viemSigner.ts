@@ -4,6 +4,7 @@ import {
   http,
   parseAbi,
   type Hash,
+  type PublicClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
@@ -31,12 +32,25 @@ export interface PublicClientLike {
     functionName: string;
     args: readonly unknown[];
   }): Promise<unknown>;
-  estimateMaxFeePerGas(): Promise<bigint>;
+  estimateFeesPerGas(): Promise<{
+    maxFeePerGas: bigint;
+    maxPriorityFeePerGas: bigint;
+  }>;
   waitForTransactionReceipt(args: {
     hash: string;
     timeout: number;
   }): Promise<{ status: string; gasUsed?: bigint }>;
 }
+
+// Compile-time guard: every method name we narrow to on `PublicClientLike` must
+// be a real viem `PublicClient` action. This fails to compile if the interface
+// ever declares a phantom method (e.g. the removed `estimateMaxFeePerGas`),
+// catching at `tsc` what the `as unknown as PublicClientLike` cast below would
+// otherwise let slip to a runtime `TypeError`.
+type _PublicClientLikeIsSubset =
+  keyof PublicClientLike extends keyof PublicClient ? true : never;
+const _assertPublicClientLikeSubset: _PublicClientLikeIsSubset = true;
+void _assertPublicClientLikeSubset;
 
 export interface WalletClientLike {
   sendTransaction(args: {
@@ -135,7 +149,7 @@ export function createViemSigner(deps: {
     },
 
     async estimateMaxFeePerGas() {
-      return clients().public.estimateMaxFeePerGas();
+      return (await clients().public.estimateFeesPerGas()).maxFeePerGas;
     },
 
     async sendTransaction(tx) {

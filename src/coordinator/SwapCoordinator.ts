@@ -4,7 +4,7 @@ import * as schema from "../db/schema";
 import { createTradingApiClient } from "../engine/tradingApiClient";
 import { createViemSigner } from "../engine/viemSigner";
 import { validateEnv } from "../env";
-import { log } from "../log";
+import { log, safeError } from "../log";
 import { createTransactionsRepository } from "../repository/transactions";
 import type { ExecuteSwapInput } from "../services/rails";
 import {
@@ -87,8 +87,31 @@ export class SwapCoordinator extends DurableObject<CloudflareBindings> {
     params: ExecuteSwapInput & { userId: string },
   ): Promise<SwapResult> {
     const doWork = async (): Promise<SwapResult> => {
+      // Resolve engine deps first, in their OWN try: `this.deps` lazily builds
+      // the viem signer, whose eager `privateKeyToAccount` throws a RAW error on
+      // a malformed `SWAP_PRIVATE_KEY` (and `validateEnv` on bad config). Tagging
+      // this `stage:"signer_init"` makes a server MISCONFIG one-glance distinct
+      // from a runtime defect — and it throws before any `classify()`, so this is
+      // the only place it can be labeled. `safeError` yields a secret-safe
+      // identity (constructor name + normalized+scrubbed detail); the raw error
+      // is never logged.
+      let deps: SwapServiceDeps;
       try {
-        const result = await executeSwap(this.deps, params);
+        deps = this.deps;
+      } catch (err) {
+        log("error", {
+          event: "executeSwap",
+          stage: "signer_init",
+          status: "error",
+          errorCode: "internal",
+          direction: params.direction,
+          ...safeError(err),
+        });
+        throw new Error("executeSwap failed unexpectedly");
+      }
+
+      try {
+        const result = await executeSwap(deps, params);
         log(result.status === "failed" ? "error" : "info", {
           event: "executeSwap",
           transactionId: result.transactionId,
@@ -98,15 +121,17 @@ export class SwapCoordinator extends DurableObject<CloudflareBindings> {
           direction: params.direction,
         });
         return result;
-      } catch {
+      } catch (err) {
         // `executeSwap` catches internally and returns a `SwapResult`, so an
-        // unexpected throw here is a defect. Log only allowlisted fields — never
-        // the caught error object — and return a safe failed result.
+        // unexpected throw here is a defect (e.g. the pre-quote `insertPending`
+        // D1 write, which sits outside the service's try). `safeError` logs a
+        // secret-safe identity for it — never the raw error — then a safe result.
         log("error", {
           event: "executeSwap",
           status: "error",
           errorCode: "internal",
           direction: params.direction,
+          ...safeError(err),
         });
         throw new Error("executeSwap failed unexpectedly");
       }

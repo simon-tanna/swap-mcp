@@ -60,7 +60,11 @@
     },
   ],
   "observability": {
-    "enabled": false,
+    // MUST be true: this top-level flag gates ALL Workers-Logs persistence.
+    // The nested `logs.enabled` does NOT override it — with this false, the
+    // structured diagnostic logs are visible only via `wrangler tail`, never in
+    // the dashboard/query builder.
+    "enabled": true,
     "head_sampling_rate": 1,
     "logs": {
       "enabled": true,

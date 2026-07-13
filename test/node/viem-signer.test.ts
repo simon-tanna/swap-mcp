@@ -28,7 +28,7 @@ type FakeCalls = {
   factory: number;
   getBalance: unknown[];
   readContract: unknown[];
-  estimateMaxFeePerGas: number;
+  estimateFeesPerGas: number;
   sendTransaction: unknown[];
   waitForTransactionReceipt: unknown[];
 };
@@ -46,7 +46,7 @@ function makeFactory(opts: {
     factory: 0,
     getBalance: [],
     readContract: [],
-    estimateMaxFeePerGas: 0,
+    estimateFeesPerGas: 0,
     sendTransaction: [],
     waitForTransactionReceipt: [],
   };
@@ -63,9 +63,12 @@ function makeFactory(opts: {
           if ("erc20Raw" in opts) return opts.erc20Raw;
           return opts.erc20Balance ?? 0n;
         },
-        estimateMaxFeePerGas: async () => {
-          calls.estimateMaxFeePerGas += 1;
-          return opts.feeEstimate ?? 0n;
+        estimateFeesPerGas: async () => {
+          calls.estimateFeesPerGas += 1;
+          return {
+            maxFeePerGas: opts.feeEstimate ?? 0n,
+            maxPriorityFeePerGas: 0n,
+          };
         },
         waitForTransactionReceipt: async (args) => {
           calls.waitForTransactionReceipt.push(args);
@@ -228,6 +231,6 @@ describe("ViemSigner", () => {
     const { signer, calls } = makeSigner({ feeEstimate: 42_000_000_000n });
     const fee = await signer.estimateMaxFeePerGas();
     expect(fee).toBe(42_000_000_000n);
-    expect(calls.estimateMaxFeePerGas).toBe(1);
+    expect(calls.estimateFeesPerGas).toBe(1);
   });
 });
