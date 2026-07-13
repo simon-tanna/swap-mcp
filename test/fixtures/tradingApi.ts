@@ -180,3 +180,28 @@ export const swapNested = {
     gasLimit: "250000",
   },
 } as const;
+
+/**
+ * `/swap` responses that pass the string-shape schema but carry a `data`/`to`
+ * that would revert on-chain — the pre-broadcast validation must fail these closed.
+ */
+
+/** Empty `data` — a classic expired-quote symptom. */
+export const swapEmptyData = {
+  swap: { ...swapNested.swap, data: "" },
+} as const;
+
+/** `data` is the empty-calldata sentinel `"0x"`. */
+export const swapZeroXData = {
+  swap: { ...swapNested.swap, data: "0x" },
+} as const;
+
+/** `data` is a non-hex string. */
+export const swapNonHexData = {
+  swap: { ...swapNested.swap, data: "zzzz" },
+} as const;
+
+/** `to` is not a valid address. */
+export const swapInvalidTo = {
+  swap: { ...swapNested.swap, to: "not-an-address" },
+} as const;

@@ -143,11 +143,19 @@ export const publicApp = new Hono<{ Bindings: PublicEnv }>();
 
 publicApp.get("/healthz", (c) => c.json({ status: "ok" }));
 
-// Render the consent screen. Strictly validate the redirect_uri
-// against the registered client and the resource against CANONICAL_MCP_URI
+// Render the consent screen. Validate the resource against CANONICAL_MCP_URI
 // BEFORE rendering, then issue a single-use CSRF token bound to the request and
 // embed it as a hidden field. The client name and exact redirect_uri are shown
 // above the passphrase field as the operator's out-of-band phishing check.
+//
+// redirect_uri is NOT re-validated here: `parseAuthRequest` above already
+// enforces it against the client's registered URIs, and does so with RFC 8252
+// §7.3 loopback handling (any port for localhost/127.x/::1). An app-owned
+// exact-string re-check would be strictly stricter than the provider — it could
+// ONLY ever reject requests the provider accepted, i.e. the loopback-port cases
+// native-app harnesses (Claude Code and other agent CLIs) rely on — so it is
+// deliberately omitted. A genuinely unregistered non-loopback URI still throws
+// in `parseAuthRequest` and is caught below.
 publicApp.get("/authorize", async (c) => {
   // The provider throws OAuthError on malformed authorize requests (bad
   // client_id, redirect_uri, response_type, etc.). Since this endpoint is
@@ -164,9 +172,6 @@ publicApp.get("/authorize", async (c) => {
 
   if (client === null) {
     return c.text("Invalid client.", 400);
-  }
-  if (!client.redirectUris.includes(authRequest.redirectUri)) {
-    return c.text("Unregistered redirect_uri.", 400);
   }
   if (!isCanonicalResource(authRequest.resource, c.env.CANONICAL_MCP_URI)) {
     return c.text("Invalid resource.", 400);

@@ -62,18 +62,33 @@ beforeEach(async () => {
  * authorize URL — the front half of the consent dance, so negative tests can
  * intercept between GET and POST /authorize.
  */
-async function beginAuthorize(overrides: { resource?: string } = {}): Promise<{
+async function beginAuthorize(
+  overrides: {
+    resource?: string;
+    // Redirect URIs registered at DCR time. Defaults to the single canonical
+    // Claude web callback.
+    registeredRedirectUris?: string[];
+    // The redirect_uri sent on the authorize request. Defaults to the first
+    // registered URI (the matching happy-path case). Set to a DIFFERENT value
+    // than what was registered to exercise the provider's redirect_uri matching.
+    authorizeRedirectUri?: string;
+  } = {},
+): Promise<{
   clientId: string;
   codeVerifier: string;
   authorizeUrl: string;
   redirectUri: string;
 }> {
-  const redirectUri = "https://claude.ai/api/mcp/auth_callback";
+  const registeredRedirectUris = overrides.registeredRedirectUris ?? [
+    "https://claude.ai/api/mcp/auth_callback",
+  ];
+  const redirectUri =
+    overrides.authorizeRedirectUri ?? registeredRedirectUris[0];
   const registerRes = await SELF.fetch("https://worker/register", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      redirect_uris: [redirectUri],
+      redirect_uris: registeredRedirectUris,
       token_endpoint_auth_method: "none",
       client_name: "negative-test-client",
     }),
@@ -212,6 +227,40 @@ describe("OAuthProvider integration negative paths", () => {
     const res = await SELF.fetch(authorizeUrl, { headers: { Origin: origin } });
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("csrf_token");
+  });
+
+  test("a loopback redirect_uri authorized from a different port reaches consent (RFC 8252)", async () => {
+    const origin = firstAllowedOrigin();
+    // A native-app harness (e.g. Claude Code) registers a loopback callback at
+    // DCR time, then spins up a FRESH ephemeral port for the actual authorize
+    // request. Per RFC 8252 §7.3 the provider matches loopback URIs ignoring the
+    // port, so this must reach the consent page — not be rejected as an
+    // unregistered redirect_uri.
+    const { authorizeUrl } = await beginAuthorize({
+      registeredRedirectUris: ["http://localhost:49001/callback"],
+      authorizeRedirectUri: "http://localhost:52777/callback",
+    });
+
+    const res = await SELF.fetch(authorizeUrl, { headers: { Origin: origin } });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("csrf_token");
+  });
+
+  test("a foreign (non-loopback) unregistered redirect_uri is still rejected", async () => {
+    const origin = firstAllowedOrigin();
+    // Loosening the app-owned shadow-check does NOT open a redirect hole: the
+    // provider still requires a non-loopback redirect_uri to match a registered
+    // one exactly. A foreign callback never reaches consent (no CSRF nonce), so
+    // no code can be minted for it.
+    const { authorizeUrl } = await beginAuthorize({
+      registeredRedirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+      authorizeRedirectUri: "https://evil.example/callback",
+    });
+
+    const res = await SELF.fetch(authorizeUrl, { headers: { Origin: origin } });
+    expect(res.status).not.toBe(200);
+    expect(res.status).not.toBe(302);
+    expect(await res.text()).not.toContain("csrf_token");
   });
 
   test("POST /mcp with a disallowed Origin is rejected before dispatch", async () => {

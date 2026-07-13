@@ -15,9 +15,9 @@ const mcpTransport = SwapMcpAgent.serve("/mcp", { binding: "SwapMcpAgent" });
 
 /**
  * Per-request adapter for the `/mcp` surface. Runs {@link transportGuard} BEFORE
- * dispatching to the MCP transport: the Origin allowlist and
- * the required `MCP-Protocol-Version` header are enforced on the `/mcp` path
- * before any tool is reached. A guard failure is mapped to the same curated,
+ * dispatching to the MCP transport: the `Origin` allowlist is enforced on the
+ * `/mcp` path (only when an `Origin` header is present — server-side connectors
+ * omit it) before any tool is reached. A guard failure is mapped to the same curated,
  * non-leaking `{ error: { code, message } }` body and HTTP status the REST
  * surface uses, so a rejected transport request never touches the coordinator or
  * the MCP session machinery.

@@ -1,5 +1,7 @@
+import { isAddress, isHex } from "viem";
 import { z } from "zod";
 import { AppError } from "../errors";
+import { log } from "../log";
 import {
   MAINNET_CHAIN_ID,
   NATIVE_ETH_SENTINEL,
@@ -39,6 +41,15 @@ export type QuoteInput = {
  * so the accepted routings can never drift across those three uses.
  */
 const CLASSIC_ROUTINGS = ["CLASSIC", "WRAP", "UNWRAP"] as const;
+
+/**
+ * On-chain Uniswap protocols only (no `UNISWAPX_V2`/`UNISWAPX_V3`). Restricting
+ * `/quote`'s `protocols` to these forces a CLASSIC-family routing so `viemSigner`
+ * can sign and submit the returned calldata — the `routingPreference` value
+ * `"CLASSIC"` was REMOVED from the API (only `BEST_PRICE`/`FASTEST` remain), so the
+ * classic-only intent now lives here in `protocols`, not in `routingPreference`.
+ */
+const CLASSIC_PROTOCOLS = ["V2", "V3", "V4"] as const;
 
 /**
  * `/quote` boundary schema. Loose at every re-forwarded level so `buildSwap`'s
@@ -189,16 +200,42 @@ export function createTradingApiClient(deps: {
       const res = await Promise.race([fetchPromise, timeoutPromise]);
       // Timeout (or unreachable gateway) → upstream_unavailable, carrying no status.
       if (res === TIMEOUT) {
+        // The public code stays opaque; the log preserves which call timed out so
+        // an outage is diagnosable from `wrangler tail` (no status, no body).
+        log("warn", { event: "trading_api_timeout", path });
         throw new AppError("upstream_unavailable");
       }
       const response = res as Response;
       if (!response.ok) {
+        // Surface the real upstream status (401/400/429/5xx) that the boundary
+        // otherwise collapses into `upstream_unavailable`. Fires on every attempt,
+        // so retried 429/5xx calls are visible. The api key lives only in headers,
+        // never in these fields; `log`'s redaction also scrubs any long hex.
+        // A bounded body snippet names the offending field on a 4xx (the status
+        // alone can't); the read is guarded so a body failure can't mask the error.
+        let detail: string | undefined;
+        try {
+          detail = (await response.text()).slice(0, 500);
+        } catch {
+          detail = undefined;
+        }
+        log("warn", {
+          event: "trading_api_upstream_error",
+          path,
+          status: response.status,
+          ...(detail !== undefined && { detail }),
+        });
         // Attach the status so the retry layer can decide on 429/5xx.
         throw new UpstreamError(response.status);
       }
       try {
         return await response.json();
       } catch {
+        log("warn", {
+          event: "trading_api_non_json",
+          path,
+          status: response.status,
+        });
         throw new AppError("upstream_unavailable");
       }
     } finally {
@@ -250,6 +287,11 @@ export function createTradingApiClient(deps: {
       );
       const parsed = checkApprovalSchema.safeParse(raw);
       if (!parsed.success) {
+        log("warn", {
+          event: "schema_reject",
+          path: "/check_approval",
+          issues: parsed.error.issues,
+        });
         throw new AppError("upstream_unavailable");
       }
       return { approval: parsed.data.approval };
@@ -268,7 +310,12 @@ export function createTradingApiClient(deps: {
           amount: i.amount,
           swapper: i.swapper,
           slippageTolerance: i.slippageTolerancePct,
-          routingPreference: "CLASSIC",
+          // Classic on-chain routing is selected via `protocols` (V2/V3/V4 only),
+          // NOT `routingPreference` — the API sunset the `"CLASSIC"` preference and
+          // now rejects it with a 400. `BEST_PRICE` picks the best price across the
+          // permitted classic protocols (it is also the API default).
+          protocols: CLASSIC_PROTOCOLS,
+          routingPreference: "BEST_PRICE",
         },
         { retryable: true },
       );
@@ -277,6 +324,16 @@ export function createTradingApiClient(deps: {
       // here would be redundant.
       const parsed = classicQuoteSchema.safeParse(raw);
       if (!parsed.success) {
+        // The most likely "healthy 200 that we still reject": a routing outside
+        // the CLASSIC family (e.g. DUTCH_V2 slipping past routingPreference), or a
+        // shape drift in `quote.output.amount`. Logging the received `routing`
+        // turns that from a silent `upstream_unavailable` into a one-line diagnosis.
+        log("warn", {
+          event: "quote_schema_reject",
+          path: "/quote",
+          routing: (raw as { routing?: unknown } | null)?.routing,
+          issues: parsed.error.issues,
+        });
         throw new AppError("upstream_unavailable");
       }
       return parsed.data;
@@ -290,9 +347,27 @@ export function createTradingApiClient(deps: {
       });
       const parsed = swapResponseSchema.safeParse(raw);
       if (!parsed.success) {
+        log("warn", {
+          event: "schema_reject",
+          path: "/swap",
+          issues: parsed.error.issues,
+        });
         throw new AppError("upstream_unavailable");
       }
       const { to, data, value, chainId, gasLimit } = parsed.data.swap;
+      // Pre-broadcast validation: the schema only proves these are strings. An
+      // expired/failed quote can return empty or non-hex `data` (or a junk `to`)
+      // that would revert on-chain and burn gas once signed and submitted. Reject
+      // it here at the boundary so no reverting tx is ever built. (`from` is not in
+      // the response schema, so only `to` is validated.)
+      if (data === "" || data === "0x" || !isHex(data) || !isAddress(to)) {
+        log("warn", {
+          event: "swap_response_invalid",
+          path: "/swap",
+          emptyData: data === "" || data === "0x",
+        });
+        throw new AppError("upstream_unavailable");
+      }
       return { to, data, value, chainId, gasLimit };
     },
   };

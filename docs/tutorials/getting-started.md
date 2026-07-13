@@ -79,8 +79,11 @@ curl -s http://localhost:8787/register \
 Copy the `client_id` from the response. Because the client is public, the
 provider enforces PKCE: generate a code verifier and its S256 challenge, then
 open `/authorize` with `response_type=code`, your `client_id`, the same
-`redirect_uri`, `resource` set to `CANONICAL_MCP_URI`, `scope=swap:read
-swap:write`, and the PKCE challenge. Send an allowed `Origin` header (for
+`redirect_uri`, `resource` set to `CANONICAL_MCP_URI` (the origin), `scope=swap:read
+swap:write`, and the PKCE challenge. A real MCP client (e.g. the Claude connector)
+does not hardcode this — it auto-discovers the same origin `resource` from the
+server's protected-resource metadata (advertised via `resourceMetadata`). Send an
+allowed `Origin` header (for
 example `https://claude.ai`); the consent flow rejects a request from any origin
 outside `ALLOWED_ORIGINS`.
 

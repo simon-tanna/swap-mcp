@@ -22,9 +22,13 @@ import {
   quoteDutchV2,
   quoteUnwrap,
   quoteWrap,
+  swapEmptyData,
+  swapInvalidTo,
   swapMissingField,
   swapMissingKey,
   swapNested,
+  swapNonHexData,
+  swapZeroXData,
 } from "../fixtures/tradingApi";
 
 const BASE_URL = "https://trade-api.gateway.uniswap.org/v1";
@@ -112,7 +116,10 @@ describe("TradingApiClient shapes", () => {
     expect(body.type).toBe("EXACT_INPUT");
     expect(body.tokenInChainId).toBe("1");
     expect(body.tokenOutChainId).toBe("1");
-    expect(body.routingPreference).toBe("CLASSIC");
+    // Classic on-chain routing is selected via `protocols` (V2/V3/V4), not via a
+    // `routingPreference: "CLASSIC"` (that value was removed from the API — it 400s).
+    expect(body.protocols).toEqual(["V2", "V3", "V4"]);
+    expect(body.routingPreference).toBe("BEST_PRICE");
     expect(body.swapper).toBe(FIXTURE_SWAPPER);
     expect(body.amount).toBe("1000000000000000000");
     expect(body.slippageTolerance).toBe(0.5);
@@ -297,6 +304,27 @@ describe("TradingApiClient shapes", () => {
       client.buildSwap(quoteClassic as unknown as ClassicQuoteResponse),
     ).rejects.toThrow(new AppError("upstream_unavailable"));
   });
+
+  test.each([
+    ["empty data", swapEmptyData],
+    ['"0x" data', swapZeroXData],
+    ["non-hex data", swapNonHexData],
+    ["invalid to address", swapInvalidTo],
+  ])(
+    "buildSwap rejects a schema-valid but unbroadcastable /swap response (%s)",
+    async (_label, swapFixture) => {
+      const { fetchImpl } = stubFetch([swapFixture]);
+      const client = createTradingApiClient({
+        baseUrl: BASE_URL,
+        getApiKey: () => API_KEY,
+        fetchImpl,
+      });
+      // A reverting/empty tx must never be built: fail closed before signing.
+      await expect(
+        client.buildSwap(quoteClassic as unknown as ClassicQuoteResponse),
+      ).rejects.toThrow(new AppError("upstream_unavailable"));
+    },
+  );
 
   test("native ETH uses the zero-address sentinel", async () => {
     const { fetchImpl, calls } = stubFetch([quoteClassic, quoteUnwrap]);

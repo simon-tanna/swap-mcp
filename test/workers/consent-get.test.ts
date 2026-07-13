@@ -96,16 +96,24 @@ describe("publicApp GET /authorize", () => {
     expect(html).toContain('name="csrf_token"');
   });
 
-  test("unregistered redirect_uri is rejected before rendering", async () => {
+  test("redirect_uri matching is delegated to the provider (no app-level exact-match)", async () => {
+    // publicApp does NOT re-validate redirect_uri: `parseAuthRequest` (the real
+    // provider) already enforces it with RFC 8252 loopback handling, so a
+    // loopback callback authorized from a DIFFERENT port than was registered
+    // must still render consent. An app-owned exact-string re-check here would
+    // wrongly 400 exactly this native-app (Claude Code) case.
     const provider = fakeProvider({
-      authRequest: fakeAuthRequest({ redirectUri: "https://evil.example/cb" }),
-      redirectUris: [REDIRECT_URI],
+      authRequest: fakeAuthRequest({
+        redirectUri: "http://localhost:52777/callback",
+      }),
+      redirectUris: ["http://localhost:49001/callback"],
     });
     const res = await publicApp.request("/authorize", {}, testEnv(provider));
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).not.toContain('name="csrf_token"');
+    expect(html).toContain('name="csrf_token"');
+    expect(html).toContain("http://localhost:52777/callback");
   });
 
   test("foreign resource parameter is rejected at consent time", async () => {
